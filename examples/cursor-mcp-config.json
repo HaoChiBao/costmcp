@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "costmcp": {
+      "command": "pnpm",
+      "args": ["--filter", "@costmcp/mcp-server", "dev"],
+      "cwd": "C:/Users/james/OneDrive/Documents/Github/costmcp",
+      "env": {
+        "COSTMCP_API_URL": "http://localhost:3000",
+        "COSTMCP_API_KEY": "cmcp_live_your_key_here"
+      }
+    }
+  }
+}
