@@ -6,7 +6,7 @@
       "cwd": "C:/Users/james/OneDrive/Documents/Github/costmcp",
       "env": {
         "COSTMCP_API_URL": "http://localhost:3000",
-        "COSTMCP_API_KEY": "cmcp_live_your_key_here"
+        "COSTMCP_API_KEY": "cmcp_live_9128e099045bb7d50fc58a686e7a85df84589196d1ad30d5"
       }
     }
   }

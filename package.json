@@ -6,7 +6,8 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
-    "db:migrate": "supabase db push",
+    "db:migrate": "npx supabase@latest db push",
+    "db:types": "node scripts/generate-db-types.mjs",
     "mcp:dev": "pnpm --filter @costmcp/mcp-server dev"
   },
   "devDependencies": {

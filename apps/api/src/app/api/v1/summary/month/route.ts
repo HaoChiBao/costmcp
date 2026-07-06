@@ -26,10 +26,7 @@ export async function GET(request: NextRequest) {
 
     const byProject = new Map<string, number>();
     for (const row of rows) {
-      const projects = row.projects as { slug?: string } | { slug?: string }[] | null;
-      const slug = (Array.isArray(projects)
-        ? projects[0]?.slug
-        : projects?.slug) ?? "unknown";
+      const slug = row.projects?.slug ?? "unknown";
       byProject.set(slug, (byProject.get(slug) ?? 0) + Number(row.amount_usd ?? 0));
     }
 

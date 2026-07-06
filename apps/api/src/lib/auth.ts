@@ -4,6 +4,7 @@ import {
   findMessageByIdempotencyKey,
   insertCostMessage,
   upsertProjectBySlug,
+  type Database,
 } from "@costmcp/db";
 import type { NextRequest } from "next/server";
 
@@ -129,7 +130,7 @@ export async function persistCostMessage(
     idempotency_key: envelope.idempotency_key,
     parent_message_id:
       msg.type === "allocation" ? msg.parent_message_id : undefined,
-    metadata: msg.type === "usage" || msg.type === "batch" ? (msg.metadata ?? {}) : {},
+    metadata: (msg.type === "usage" || msg.type === "batch" ? (msg.metadata ?? {}) : {}) as Database["public"]["Tables"]["cost_messages"]["Insert"]["metadata"],
   });
 
   return row;

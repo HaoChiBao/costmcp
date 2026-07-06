@@ -10,6 +10,21 @@ AI-native cost ledger for builders — track tokens, generations, subscriptions,
 - [Technical Architecture (Notion)](https://app.notion.com/p/395850bd5b0881e29ddbca6dbdc4fd34)
 - [Linear Project](https://linear.app/yangspace/project/costmcp-a81bdc4b3531)
 
+## Supabase (live)
+
+Project: **[costmcp](https://supabase.com/dashboard/project/bylrekkhwcwosdmcgfsg)** (`bylrekkhwcwosdmcgfsg`, us-west-2)
+
+Migrations applied:
+- `initial_schema` — tables + seed data
+- `rls_policies` — RLS + global budget
+
+Local env: copy `.env.example` → `apps/api/.env.local` (or use the generated `.env.local` if present).
+
+```bash
+pnpm db:migrate   # requires `npx supabase login` + linked project
+pnpm db:types     # regenerate types from remote schema
+```
+
 ## Quick start
 
 ```bash
