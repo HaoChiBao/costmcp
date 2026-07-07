@@ -174,6 +174,7 @@ html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
@@ -185,6 +186,7 @@ body {
   font-weight: var(--font-weight-regular);
   line-height: var(--leading-body);
   letter-spacing: var(--tracking-body);
+  overflow-x: clip;
 }
 
 a {
@@ -420,6 +422,7 @@ a {
   min-height: 100vh;
   background: var(--color-paper);
   position: relative;
+  overflow-x: clip;
 }
 
 .page__chrome {
@@ -521,21 +524,53 @@ a {
 .landing-spine {
   position: relative;
   --spine-width: clamp(4rem, 7vw, 5.5rem);
-  /* Base asset display size 720×1400, scaled 1.5× */
   --hook-width: 720px;
   --hook-height: 1400px;
+  --center-hook-scale: 0.72;
+  --side-hooks-opacity: 1;
+  --hook-sway-deg: 0deg;
+  --hook-top-offset: 36px;
+  overflow-x: clip;
 }
 
 .landing-spine__track {
   position: absolute;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
+  left: 0;
+  right: 0;
   height: 100%;
-  overflow: visible;
+  overflow: hidden;
   pointer-events: none;
   z-index: 1;
+}
+
+.landing-spine__hook-row {
+  position: absolute;
+  top: var(--hook-top-offset);
+  left: 0;
+  right: 0;
+  height: min(68vh, 620px);
+  pointer-events: none;
+  transition: opacity 120ms linear;
+  overflow: visible;
+}
+
+.landing-spine__hook-mini {
+  position: absolute;
+  transform: translateX(-50%);
+  line-height: 0;
+  isolation: isolate;
+}
+
+.landing-spine__hook-mini-sway {
+  transform: translateY(var(--hook-drop)) scale(var(--hook-scale));
+  transform-origin: top center;
+  animation: hook-pill-sway var(--hook-sway-duration, 4.5s) ease-in-out infinite;
+  animation-delay: var(--hook-sway-delay, 0s);
+}
+
+.landing-spine__hook-mini-sway--still {
+  animation: none;
 }
 
 .landing-spine__hook-sticky {
@@ -547,23 +582,38 @@ a {
   justify-content: center;
   align-items: flex-start;
   pointer-events: none;
-  overflow: visible;
+  overflow: hidden;
   margin: 0;
-  padding: 0;
+  padding: var(--hook-top-offset) 0 0;
+}
+
+.landing-spine__hook-sway-scroll {
+  transform-origin: top center;
+  transition: rotate 180ms ease-out;
+  line-height: 0;
 }
 
 .landing-spine__hook-sway {
   transform-origin: top center;
-  transition: rotate 180ms ease-out;
-  margin: 0;
-  padding: 0;
+  animation: hook-pill-sway var(--hook-sway-duration, 5s) ease-in-out infinite;
   line-height: 0;
+}
+
+.landing-spine__hook-sway--still {
+  animation: none;
+}
+
+.landing-spine__hook-grow {
+  transform: scale(var(--center-hook-scale));
+  transform-origin: top center;
+  will-change: transform;
+  pointer-events: auto;
+  cursor: default;
 }
 
 .landing-spine__hook {
   animation: spine-hook-dip 1.2s cubic-bezier(0.34, 1.12, 0.64, 1) 0.08s both;
   transform-origin: top center;
-  transition: rotate 180ms ease-out;
   cursor: default;
   margin: 0;
   padding: 0;
@@ -585,11 +635,20 @@ a {
   display: block;
   width: var(--hook-width);
   height: var(--hook-height);
-  max-width: min(92vw, var(--hook-width));
-  max-height: min(150vh, var(--hook-height));
   object-fit: contain;
   object-position: top center;
   vertical-align: top;
+}
+
+.landing-spine__hook-image--hero {
+  max-width: min(92vw, var(--hook-width));
+  max-height: min(150vh, var(--hook-height));
+}
+
+.landing-spine__hook-image--mini {
+  width: min(var(--hook-width), 36vw);
+  height: auto;
+  max-width: 100%;
 }
 
 .landing-spine__content {
@@ -599,6 +658,17 @@ a {
 .landing-spine__above-hook {
   position: relative;
   z-index: 3;
+}
+
+
+@keyframes hook-pill-sway {
+  0%,
+  100% {
+    rotate: calc(var(--hook-sway-angle, 1.4deg) * -1);
+  }
+  50% {
+    rotate: var(--hook-sway-angle, 1.4deg);
+  }
 }
 
 @keyframes spine-hook-dip {
@@ -679,7 +749,7 @@ a {
   z-index: 3;
   justify-self: center;
   width: 100%;
-  max-width: min(92vw, 121.5rem);
+  max-width: min(92vw, 81rem);
   margin: 0 auto;
   overflow: visible;
   pointer-events: auto;
@@ -708,7 +778,7 @@ a {
 
 .hero__headline-word {
   font-family: var(--font-display);
-  font-size: clamp(4.5rem, 11.25vw, 7.3125rem);
+  font-size: clamp(3rem, 7.5vw, 4.875rem);
   line-height: 1;
   font-weight: var(--font-weight-regular);
   letter-spacing: -0.02em;
@@ -723,7 +793,7 @@ a {
   margin-inline: auto;
   padding: 0;
   font-family: var(--font-display);
-  font-size: clamp(13.5rem, 40.5vw, 23.625rem);
+  font-size: clamp(9rem, 27vw, 15.75rem);
   font-weight: var(--font-weight-regular);
   line-height: 0.88;
   letter-spacing: -0.04em;
@@ -792,6 +862,11 @@ a {
   }
 
   .landing-spine__hook--bobbing {
+    animation: none;
+  }
+
+  .landing-spine__hook-sway,
+  .landing-spine__hook-mini-sway {
     animation: none;
   }
 }
@@ -3016,7 +3091,7 @@ a {
 }
 
 @media (max-width: 767px) {
-  .landing-spine__track {
+  .landing-spine__hook-row {
     display: none;
   }
 

@@ -11,7 +11,7 @@ import { HERO_COST_IMAGES } from "@/components/marketing/hero-cost-images";
 
 const SWITCH_MS = 800;
 /** Headline scale for KNOW YOUR COST. */
-const HEADLINE_SCALE = 2.25;
+const HEADLINE_SCALE = 1.5;
 /** Cost is 3× the width-matched baseline, scaled with the headline. */
 const COST_SIZE_MULTIPLIER = 3 * HEADLINE_SCALE;
 
@@ -67,18 +67,18 @@ export function HeroHeadline() {
       const targetWidth = row.offsetWidth;
       if (targetWidth <= 0) return;
 
-      let size = 108;
+      let size = 72;
 
       const measure = (px: number) => {
         cost.style.fontSize = `${px}px`;
         return cost.offsetWidth;
       };
 
-      while (measure(size) < targetWidth && size < 450) {
+      while (measure(size) < targetWidth && size < 300) {
         size += 1;
       }
 
-      while (measure(size) > targetWidth && size > 90) {
+      while (measure(size) > targetWidth && size > 60) {
         size -= 1;
       }
 
