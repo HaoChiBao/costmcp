@@ -1,6 +1,7 @@
 import { AnnouncementBar } from "@/components/marketing/announcement-bar";
 import { FeaturesSection } from "@/components/marketing/features-section";
 import { LandingHero } from "@/components/marketing/landing-hero";
+import { LandingSpine } from "@/components/marketing/landing-spine";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 
@@ -12,8 +13,11 @@ export default function Home() {
         <MarketingNav />
       </header>
 
-      <LandingHero />
-      <FeaturesSection />
+      <LandingSpine>
+        <LandingHero />
+        <FeaturesSection />
+      </LandingSpine>
+
       <SiteFooter />
     </div>
   );

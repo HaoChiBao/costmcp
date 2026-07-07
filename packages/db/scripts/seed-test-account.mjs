@@ -366,7 +366,7 @@ async function main() {
 
 
 
-  // Vendors (org API completeness)
+  // Vendors — each category maps to a distinct org color in the dashboard
 
   const vendorDefs = [
 
@@ -376,7 +376,17 @@ async function main() {
 
     { slug: "elevenlabs", name: "ElevenLabs", category: "voice" },
 
+    { slug: "fish", name: "Fish Audio", category: "voice" },
+
+    { slug: "kling", name: "Kling", category: "video" },
+
+    { slug: "runway", name: "Runway", category: "video" },
+
     { slug: "cursor", name: "Cursor", category: "ide" },
+
+    { slug: "modal", name: "Modal", category: "gpu" },
+
+    { slug: "notion", name: "Notion", category: "saas" },
 
   ];
 
@@ -389,6 +399,40 @@ async function main() {
       { onConflict: "workspace_id,slug" },
 
     );
+
+  }
+
+
+
+  const { data: categories } = await admin
+
+    .from("cost_categories")
+
+    .select("id, slug")
+
+    .eq("workspace_id", workspaceId);
+
+  const categoryBySlug = Object.fromEntries((categories ?? []).map((c) => [c.slug, c.id]));
+
+
+
+  function resolveCategory(message) {
+
+    if (message.category) return categoryBySlug[message.category] ?? null;
+
+    if (message.type === "subscription") return categoryBySlug.subscriptions ?? null;
+
+    if (message.type === "expense") return categoryBySlug.other ?? null;
+
+    if (message.feature?.includes("voice")) return categoryBySlug["voice-audio"] ?? null;
+
+    if (message.feature?.includes("video") || message.feature?.includes("thumbnail")) {
+
+      return categoryBySlug["image-generation"] ?? null;
+
+    }
+
+    return categoryBySlug["llm-tokens"] ?? null;
 
   }
 
@@ -416,7 +460,7 @@ async function main() {
 
     // ── This month (Jul 1–6) — month / quarter / week / day views ──
 
-    { project: "slideshow-studio", type: "usage", amount: 0.04, when: dayThisMonth(1, 9), feature: "slide_generation", provider: "openai", model: "gpt-image-2" },
+    { project: "slideshow-studio", type: "usage", amount: 0.04, when: dayThisMonth(1, 9), feature: "slide_generation", provider: "openai", model: "gpt-image-2", category: "image-generation", tags: ["production", "images"] },
 
     { project: "slideshow-studio", type: "usage", amount: 0.12, when: dayThisMonth(1, 15), feature: "slide_generation", provider: "openai", model: "gpt-image-2" },
 
@@ -530,6 +574,10 @@ async function main() {
 
     metadata: { provider: m.provider ?? null, model: m.model ?? null, seeded: true },
 
+    cost_category_id: resolveCategory(m),
+
+    tags: m.tags ?? (m.provider ? [m.provider, m.type] : [m.type]),
+
     created_at: m.when,
 
     idempotency_key: `seed-${workspaceId}-${i}`,
@@ -600,7 +648,9 @@ async function main() {
 
   console.log("    • Environments: production, staging, development, other");
 
-  console.log("    • Ledger: 20+ rows with mixed types & providers");
+  console.log("    • Vendors: 9 across llm / voice / video / ide / gpu / saas");
+
+  console.log("    • Ledger: 20+ rows with colored type + project labels");
 
   console.log("\n  Login:       http://localhost:3001/login");
 

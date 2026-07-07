@@ -1,5 +1,7 @@
 import type { OrgTree } from "@/lib/api";
 import { DashboardPanel } from "@/components/ui/panel";
+import { OrgPill, ProjectLabel } from "@/components/ui/org-pill";
+import { collectionTone, environmentTone, projectColorBySlug } from "@/lib/org-colors";
 
 function formatBudget(budget: number | null) {
   if (budget == null) return null;
@@ -33,42 +35,65 @@ export function WorkspaceStructure({ org }: { org: OrgTree }) {
             </tr>
           </thead>
           <tbody>
-            {org.collections.flatMap((collection) =>
-              collection.projects.length === 0
+            {org.collections.flatMap((collection) => {
+              const collectionStyle = collectionTone(collection.slug);
+              return collection.projects.length === 0
                 ? [
                     <tr key={collection.id}>
-                      <td className="data-table__primary">{collection.name}</td>
+                      <td className="data-table__primary">
+                        <OrgPill tone={collectionStyle}>{collection.name}</OrgPill>
+                      </td>
                       <td colSpan={3} className="data-table__meta">
                         No projects
                       </td>
                     </tr>,
                   ]
                 : collection.projects.map((project, i) => (
-                    <tr key={project.id}>
+                    <tr
+                      key={project.id}
+                      style={{
+                        boxShadow: `inset 3px 0 0 ${projectColorBySlug(project.slug)}`,
+                      }}
+                    >
                       {i === 0 ? (
                         <td
                           className="data-table__primary"
                           rowSpan={collection.projects.length}
                         >
-                          {collection.name}
+                          <OrgPill tone={collectionStyle}>{collection.name}</OrgPill>
                         </td>
                       ) : null}
-                      <td>{project.name}</td>
                       <td>
-                        <span className="env-tag">{project.environment}</span>
+                        <ProjectLabel name={project.name} slug={project.slug} />
+                      </td>
+                      <td>
+                        <OrgPill tone={environmentTone(project.environment)}>
+                          {environmentTone(project.environment).label}
+                        </OrgPill>
                       </td>
                       <td className="data-table__amount tabular-nums">
                         {formatBudget(project.budget) ?? "—"}
                       </td>
                     </tr>
-                  )),
-            )}
+                  ));
+            })}
             {org.ungrouped_projects.map((project) => (
-              <tr key={project.id}>
-                <td className="data-table__meta">Ungrouped</td>
-                <td className="data-table__primary">{project.name}</td>
+              <tr
+                key={project.id}
+                style={{
+                  boxShadow: `inset 3px 0 0 ${projectColorBySlug(project.slug)}`,
+                }}
+              >
+                <td className="data-table__meta">
+                  <OrgPill tone={collectionTone("ungrouped")}>Ungrouped</OrgPill>
+                </td>
                 <td>
-                  <span className="env-tag">{project.environment}</span>
+                  <ProjectLabel name={project.name} slug={project.slug} />
+                </td>
+                <td>
+                  <OrgPill tone={environmentTone(project.environment)}>
+                    {environmentTone(project.environment).label}
+                  </OrgPill>
                 </td>
                 <td className="data-table__amount tabular-nums">
                   {formatBudget(project.budget) ?? "—"}

@@ -215,6 +215,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org }: Props) {
       date: formatActivityDate(row.created_at),
       label: row.label,
       meta: row.project_name,
+      projectSlug: row.project_slug,
       tag: row.message_type,
       amount_usd: row.amount_usd,
     })) ?? [];

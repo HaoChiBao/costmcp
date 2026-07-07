@@ -1,10 +1,13 @@
 import { formatUsd } from "@/lib/metrics";
+import { messageTypeTone } from "@/lib/org-colors";
+import { OrgPill, ProjectLabel } from "@/components/ui/org-pill";
 
 export type LedgerRow = {
   id: string;
   date: string;
   label: string;
   meta?: string | null;
+  projectSlug?: string | null;
   tag?: string | null;
   amount_usd: number;
 };
@@ -34,21 +37,32 @@ export function LedgerTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td className="data-table__date">{row.date}</td>
-              <td>
-                <span className="data-table__primary">{row.label}</span>
-                {row.tag ? (
-                  <span className="data-table__tag">{row.tag}</span>
-                ) : null}
-              </td>
-              <td className="data-table__meta">{row.meta ?? "—"}</td>
-              <td className="data-table__amount tabular-nums">
-                {formatUsd(row.amount_usd)}
-              </td>
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const typeTone = messageTypeTone(row.tag);
+            return (
+              <tr key={row.id}>
+                <td className="data-table__date">{row.date}</td>
+                <td>
+                  <span className="data-table__primary">{row.label}</span>
+                  {row.tag ? (
+                    <OrgPill tone={typeTone} className="data-table__tag">
+                      {typeTone.label}
+                    </OrgPill>
+                  ) : null}
+                </td>
+                <td>
+                  {row.meta ? (
+                    <ProjectLabel name={row.meta} slug={row.projectSlug} />
+                  ) : (
+                    <span className="data-table__meta">—</span>
+                  )}
+                </td>
+                <td className="data-table__amount tabular-nums">
+                  {formatUsd(row.amount_usd)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

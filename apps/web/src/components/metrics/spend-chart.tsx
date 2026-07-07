@@ -97,10 +97,10 @@ export function SpendChart({ metrics: rawMetrics }: Props) {
 
   const projectRows = useMemo(
     () =>
-      metrics.daily_by_project.series.map((series, index) => ({
+      metrics.daily_by_project.series.map((series) => ({
         key: series.slug,
         label: series.name,
-        color: projectColor(index),
+        color: projectColor(series.slug),
         total: metrics.daily_by_project.daily.reduce(
           (sum, day) => sum + Number(day[series.slug] ?? 0),
           0,

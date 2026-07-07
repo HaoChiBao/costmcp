@@ -9,9 +9,11 @@ import {
 } from "react";
 import { HERO_COST_IMAGES } from "@/components/marketing/hero-cost-images";
 
-const SWITCH_MS = 380;
-/** Cost is 2× the width-matched baseline (same width as "KNOW" + "YOUR"). */
-const COST_SIZE_MULTIPLIER = 2;
+const SWITCH_MS = 800;
+/** Headline scale for KNOW YOUR COST. */
+const HEADLINE_SCALE = 2.25;
+/** Cost is 3× the width-matched baseline, scaled with the headline. */
+const COST_SIZE_MULTIPLIER = 3 * HEADLINE_SCALE;
 
 function preloadHeroCostImages() {
   return Promise.all(
@@ -65,23 +67,32 @@ export function HeroHeadline() {
       const targetWidth = row.offsetWidth;
       if (targetWidth <= 0) return;
 
-      let size = 32;
+      let size = 108;
 
       const measure = (px: number) => {
         cost.style.fontSize = `${px}px`;
         return cost.offsetWidth;
       };
 
-      while (measure(size) < targetWidth && size < 200) {
+      while (measure(size) < targetWidth && size < 450) {
         size += 1;
       }
 
-      while (measure(size) > targetWidth && size > 24) {
+      while (measure(size) > targetWidth && size > 90) {
         size -= 1;
       }
 
+      let finalSize = size * COST_SIZE_MULTIPLIER;
+      const maxWidth = Math.min(window.innerWidth * 0.92, 864 * HEADLINE_SCALE);
+
+      cost.style.fontSize = `${finalSize}px`;
+      while (cost.scrollWidth > maxWidth && finalSize > 48) {
+        finalSize -= 1;
+        cost.style.fontSize = `${finalSize}px`;
+      }
+
       cost.style.fontSize = "";
-      setCostSize(size * COST_SIZE_MULTIPLIER);
+      setCostSize(finalSize);
     };
 
     fit();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { FeaturePlaceholderScene } from "@/components/marketing/feature-placeholder-scenes";
 
 const features = [
@@ -36,12 +36,11 @@ const features = [
 
 export function FeaturesSection() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const stepRefs = useRef<(HTMLElement | null)[]>([]);
-  const stageRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
-    const steps = stepRefs.current.filter(Boolean) as HTMLElement[];
-    if (steps.length === 0) return;
+    const cards = cardRefs.current.filter(Boolean) as HTMLElement[];
+    if (cards.length === 0) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -54,107 +53,88 @@ export function FeaturesSection() {
           if (!Number.isNaN(index)) setActiveIndex(index);
         }
       },
-      { rootMargin: "-35% 0px -35% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] },
+      { rootMargin: "-30% 0px -30% 0px", threshold: [0, 0.35, 0.65, 1] },
     );
 
-    steps.forEach((step) => observer.observe(step));
+    cards.forEach((card) => observer.observe(card));
     return () => observer.disconnect();
   }, []);
 
-  const scrollToStep = useCallback((index: number) => {
-    stepRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, []);
-
-  const progress = ((activeIndex + 1) / features.length) * 100;
-
   return (
     <section id="features" className="features-section">
-      <header className="features-section__intro">
-        <p className="eyebrow">Product</p>
-        <h2 className="features-section__title">How it works</h2>
-        <p className="features-section__lead">
-          Scroll through each piece — video walkthroughs coming soon.
-        </p>
-      </header>
+      <div className="landing-spine__grid features-split">
+        <header className="landing-spine__pane landing-spine__pane--left features-section__intro">
+          <p className="eyebrow">Product</p>
+          <h2 className="features-section__title">How it works</h2>
+        </header>
 
-      <div className="feature-showcase" ref={stageRef}>
-        <nav className="feature-showcase__rail" aria-label="Feature sections">
-          <div className="feature-showcase__rail-track" aria-hidden="true">
-            <div
-              className="feature-showcase__rail-fill"
-              style={{ height: `${progress}%` }}
-            />
-          </div>
-          {features.map((feature, index) => (
-            <button
-              key={feature.id}
-              type="button"
-              className={`feature-showcase__rail-item${activeIndex === index ? " is-active" : ""}${activeIndex > index ? " is-complete" : ""}`}
-              onClick={() => scrollToStep(index)}
-              aria-current={activeIndex === index ? "step" : undefined}
-            >
-              <span className="feature-showcase__rail-dot" aria-hidden="true" />
-              <span className="feature-showcase__rail-index">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span className="feature-showcase__rail-label">{feature.title}</span>
-            </button>
-          ))}
-        </nav>
+        <div className="landing-spine__pane landing-spine__pane--center" aria-hidden="true" />
 
-        <div className="feature-showcase__sticky">
-          <div className="feature-showcase__frame">
-            {features.map((feature, index) => (
-              <div
-                key={feature.id}
-                className={`feature-showcase__video${activeIndex === index ? " is-active" : ""}`}
-                aria-hidden={activeIndex !== index}
-              >
-                <div className="feature-showcase__video-inner">
-                  <FeaturePlaceholderScene type={feature.scene} />
-                  <div className="feature-showcase__video-overlay">
-                    <span className="feature-showcase__play" aria-hidden="true">
-                      ▶
-                    </span>
-                    <span className="feature-showcase__video-tag">Preview · {feature.title}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div className="feature-showcase__frame-footer">
-              <span className="meta-label">
-                {String(activeIndex + 1).padStart(2, "0")} / {String(features.length).padStart(2, "0")}
-              </span>
-              <span className="feature-showcase__frame-title">{features[activeIndex].title}</span>
-            </div>
-          </div>
+        <div className="landing-spine__pane landing-spine__pane--right features-section__intro features-section__intro--right">
+          <p className="features-section__lead">
+            Workspaces, collections, chart of accounts, and MCP — one ledger for every source.
+          </p>
         </div>
 
-        <div className="feature-showcase__steps">
-          {features.map((feature, index) => (
-            <article
-              key={feature.id}
-              ref={(el) => {
-                stepRefs.current[index] = el;
-              }}
-              data-index={index}
-              className={`feature-showcase__step${activeIndex === index ? " is-active" : ""}`}
-            >
-              <div className="feature-showcase__step-marker" aria-hidden="true">
-                <span>{String(index + 1).padStart(2, "0")}</span>
-              </div>
-              <div className="feature-showcase__step-body">
-                <h3 className="feature-showcase__step-title">{feature.title}</h3>
-                <p className="feature-showcase__step-desc">{feature.description}</p>
-                <p className="feature-showcase__step-note meta-label">Video walkthrough · coming soon</p>
-              </div>
-              <div className="feature-showcase__step-mobile-video" aria-hidden="true">
-                <FeaturePlaceholderScene type={feature.scene} />
-              </div>
-            </article>
-          ))}
-        </div>
+        {features.map((feature, index) => {
+          const isLeft = index % 2 === 0;
+
+          return (
+            <Fragment key={feature.id}>
+              {isLeft ? (
+                <>
+                  <article
+                    ref={(el) => {
+                      cardRefs.current[index] = el;
+                    }}
+                    data-index={index}
+                    className={`landing-spine__pane landing-spine__pane--left features-split__card${activeIndex === index ? " is-active" : ""}`}
+                  >
+                    <FeatureCard feature={feature} index={index} align="left" />
+                  </article>
+                  <div className="landing-spine__pane landing-spine__pane--center" aria-hidden="true" />
+                  <div className="landing-spine__pane landing-spine__pane--right landing-spine__pane--spacer" />
+                </>
+              ) : (
+                <>
+                  <div className="landing-spine__pane landing-spine__pane--left landing-spine__pane--spacer" />
+                  <div className="landing-spine__pane landing-spine__pane--center" aria-hidden="true" />
+                  <article
+                    ref={(el) => {
+                      cardRefs.current[index] = el;
+                    }}
+                    data-index={index}
+                    className={`landing-spine__pane landing-spine__pane--right features-split__card${activeIndex === index ? " is-active" : ""}`}
+                  >
+                    <FeatureCard feature={feature} index={index} align="right" />
+                  </article>
+                </>
+              )}
+            </Fragment>
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+type FeatureCardProps = {
+  feature: (typeof features)[number];
+  index: number;
+  align: "left" | "right";
+};
+
+function FeatureCard({ feature, index, align }: FeatureCardProps) {
+  return (
+    <div className={`features-split__card-inner features-split__card-inner--${align}`}>
+      <span className="features-split__index meta-label">
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      <h3 className="features-split__title">{feature.title}</h3>
+      <p className="features-split__desc">{feature.description}</p>
+      <div className="features-split__preview" aria-hidden="true">
+        <FeaturePlaceholderScene type={feature.scene} />
+      </div>
+    </div>
   );
 }

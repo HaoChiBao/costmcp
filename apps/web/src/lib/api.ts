@@ -44,6 +44,6 @@ export type OrgTree = {
     slug: string;
     children: Array<{ id: string; name: string; slug: string }>;
   }>;
-  vendors: Array<{ id: string; name: string; slug: string }>;
+  vendors: Array<{ id: string; name: string; slug: string; category?: string | null }>;
   budgets: Array<{ id: string; name: string; amount: number; period: string }>;
 };
