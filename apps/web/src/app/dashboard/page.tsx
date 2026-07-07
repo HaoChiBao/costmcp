@@ -1,5 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { Button } from "@/components/ui/button";
+import { DashboardPanel } from "@/components/ui/panel";
 import { apiFetch, type MeResponse } from "@/lib/api";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,8 +17,8 @@ export default async function DashboardPage() {
     me = await apiFetch<MeResponse>("/api/v1/me", session.access_token);
   } catch {
     return (
-      <main style={{ padding: "2rem" }}>
-        <p>Could not load your account. Is the API running on port 3000?</p>
+      <main className="auth-page">
+        <p className="text-muted">Could not load your account. Is the API running on port 3000?</p>
       </main>
     );
   }
@@ -30,12 +32,26 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main style={{ padding: "2rem", maxWidth: 720, margin: "0 auto" }}>
-      <h1>Welcome{me.profile?.display_name ? `, ${me.profile.display_name}` : ""}</h1>
-      <p style={{ color: "#7b8da8" }}>No workspaces yet.</p>
-      <Link href="/dashboard/new" style={{ color: "#60a5fa" }}>
-        Create your first cost account
-      </Link>
-    </main>
+    <DashboardShell
+      userLabel={me.profile?.display_name ?? me.user.email ?? "Account"}
+      workspaces={me.workspaces}
+    >
+      <header className="dashboard-page-header">
+        <div>
+          <p className="meta-label">Welcome</p>
+          <h1 className="heading-sm">
+            {me.profile?.display_name ? `Hi, ${me.profile.display_name}` : "Your dashboard"}
+          </h1>
+        </div>
+      </header>
+      <DashboardPanel
+        title="Get started"
+        description="No workspaces yet. Create your first cost account to start organizing projects."
+      >
+            <Button href="/dashboard/new" variant="ink">
+          Create cost account
+        </Button>
+      </DashboardPanel>
+    </DashboardShell>
   );
 }

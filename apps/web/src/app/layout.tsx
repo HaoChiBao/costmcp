@@ -1,3 +1,27 @@
+import { Antonio, Fraunces, Inter } from "next/font/google";
+import "./globals.css";
+
+const louize = Fraunces({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-louize-display",
+  display: "swap",
+});
+
+const ui = Inter({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-neue-montreal",
+  display: "swap",
+});
+
+const manuka = Antonio({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-manuka",
+  display: "swap",
+});
+
 export const metadata = {
   title: "CostMCP",
   description: "Organized AI cost tracking for builders",
@@ -5,10 +29,8 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body style={{ margin: 0, fontFamily: "system-ui, -apple-system, sans-serif", background: "#0b0f14", color: "#e8edf5" }}>
-        {children}
-      </body>
+    <html lang="en" className={`${louize.variable} ${ui.variable} ${manuka.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }

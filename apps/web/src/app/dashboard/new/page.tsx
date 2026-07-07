@@ -2,6 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { Button } from "@/components/ui/button";
+import { FormError, FormField, SelectField } from "@/components/ui/form-field";
+import { DashboardPanel } from "@/components/ui/panel";
 import { createClient } from "@/lib/supabase/client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
@@ -38,7 +42,7 @@ export default function NewWorkspacePage() {
 
     setLoading(false);
     if (!res.ok) {
-      setError(await res.text());
+      setError("Could not create workspace. Try again.");
       return;
     }
 
@@ -48,60 +52,47 @@ export default function NewWorkspacePage() {
   }
 
   return (
-    <main style={{ maxWidth: 480, margin: "4rem auto", padding: "0 2rem" }}>
-      <h1>New cost account</h1>
-      <p style={{ color: "#7b8da8" }}>Create a separate workspace for a team, client, or side project.</p>
-      <form onSubmit={handleSubmit}>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Client Projects, Side Hustles"
-          required
-          style={{
-            width: "100%",
-            padding: "0.75rem",
-            borderRadius: 8,
-            border: "1px solid #2a3548",
-            background: "#121820",
-            color: "#e8edf5",
-            marginBottom: "1rem",
-            boxSizing: "border-box",
-          }}
-        />
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "0.75rem",
-            borderRadius: 8,
-            border: "1px solid #2a3548",
-            background: "#121820",
-            color: "#e8edf5",
-            marginBottom: "1rem",
-          }}
-        >
-          <option value="personal">Personal</option>
-          <option value="team">Team</option>
-          <option value="organization">Organization</option>
-        </select>
-        {error && <p style={{ color: "#f87171" }}>{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "0.75rem 1.25rem",
-            borderRadius: 8,
-            border: "none",
-            background: "#3b82f6",
-            color: "white",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "Creating…" : "Create workspace"}
-        </button>
-      </form>
-    </main>
+    <DashboardShell userLabel="New account" workspaces={[]}>
+      <header className="dashboard-page-header">
+        <div>
+          <p className="meta-label">Setup</p>
+          <h1 className="heading-sm">New cost account</h1>
+        </div>
+      </header>
+
+      <DashboardPanel
+        title="Workspace details"
+        description="Create a separate workspace for a team, client, or side project."
+      >
+        <form onSubmit={handleSubmit} className="dashboard-form">
+          <FormField
+            label="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Client projects, Side hustles…"
+            required
+          />
+          <SelectField
+            label="Type"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            options={[
+              { value: "personal", label: "Personal" },
+              { value: "team", label: "Team" },
+              { value: "organization", label: "Organization" },
+            ]}
+          />
+          {error ? <FormError message={error} /> : null}
+          <div className="dashboard-form__actions">
+            <Button type="submit" variant="ink" disabled={loading}>
+              {loading ? "Creating…" : "Create workspace"}
+            </Button>
+            <Button href="/dashboard" variant="ghost">
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </DashboardPanel>
+    </DashboardShell>
   );
 }

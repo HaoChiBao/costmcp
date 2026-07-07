@@ -3,34 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { FormError, FormField } from "@/components/ui/form-field";
 import { createClient } from "@/lib/supabase/client";
-
-const shell: React.CSSProperties = {
-  minHeight: "100vh",
-  display: "grid",
-  placeItems: "center",
-  padding: "2rem",
-};
-
-const card: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 400,
-  background: "#121820",
-  border: "1px solid #243044",
-  borderRadius: 12,
-  padding: "2rem",
-};
-
-const input: React.CSSProperties = {
-  width: "100%",
-  padding: "0.75rem",
-  borderRadius: 8,
-  border: "1px solid #2a3548",
-  background: "#0b0f14",
-  color: "#e8edf5",
-  marginBottom: "1rem",
-  boxSizing: "border-box",
-};
 
 export default function SignupPage() {
   const router = useRouter();
@@ -60,37 +35,47 @@ export default function SignupPage() {
   }
 
   return (
-    <main style={shell}>
-      <div style={card}>
-        <h1 style={{ marginTop: 0 }}>Create account</h1>
-        <p style={{ color: "#7b8da8", marginBottom: "1.5rem" }}>
-          We&apos;ll set up a personal cost workspace with collections and categories.
-        </p>
-        <form onSubmit={handleSubmit}>
-          <input style={input} type="text" placeholder="Display name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-          <input style={input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required />
-          {error && <p style={{ color: "#f87171", fontSize: 14 }}>{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              borderRadius: 8,
-              border: "none",
-              background: "#3b82f6",
-              color: "white",
-              fontWeight: 600,
-              cursor: loading ? "wait" : "pointer",
-            }}
-          >
-            {loading ? "Creating…" : "Create account"}
-          </button>
+    <main className="auth-page">
+      <div className="auth-card">
+        <p className="eyebrow">New account</p>
+        <h1 className="auth-page__title">Join CostMCP</h1>
+        <p className="text-muted">One workspace with collections and categories, ready to go.</p>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <FormField
+            label="Display name"
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            autoComplete="name"
+          />
+          <FormField
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+          <FormField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={6}
+            required
+            autoComplete="new-password"
+          />
+          {error ? <FormError message={error} /> : null}
+          <Button type="submit" variant="ink" block disabled={loading}>
+            {loading ? "Creating…" : "Get started"}
+          </Button>
         </form>
-        <p style={{ marginTop: "1.5rem", color: "#7b8da8", fontSize: 14 }}>
-          Already have an account? <Link href="/login" style={{ color: "#60a5fa" }}>Sign in</Link>
+        <p className="auth-form__footer">
+          Already have an account? <Link href="/login">Sign in</Link>
         </p>
+        <Link href="/" className="btn btn--ghost auth-card__back">
+          Back home
+        </Link>
       </div>
     </main>
   );

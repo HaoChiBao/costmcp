@@ -8,6 +8,7 @@
     "typecheck": "turbo typecheck",
     "db:migrate": "npx supabase@latest db push",
     "db:types": "node scripts/generate-db-types.mjs",
+    "seed:test": "pnpm --filter @costmcp/db seed:test",
     "mcp:dev": "pnpm --filter @costmcp/mcp-server dev"
   },
   "devDependencies": {

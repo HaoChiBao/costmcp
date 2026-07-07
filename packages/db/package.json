@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed:test": "node scripts/seed-test-account.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.2"
