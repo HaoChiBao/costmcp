@@ -12,6 +12,8 @@ export function WorkspaceSwitcher({
   workspaces: Workspace[];
   currentSlug?: string;
 }) {
+  if (!workspaces.length) return null;
+
   return (
     <nav className="workspace-nav" aria-label="Cost accounts">
       <div className="workspace-nav__scroll">
@@ -20,6 +22,7 @@ export function WorkspaceSwitcher({
             <Link
               key={ws.slug}
               href={`/dashboard/${ws.slug}`}
+              prefetch
               className={`workspace-link ${ws.slug === currentSlug ? "workspace-link--active" : ""}`}
             >
               {ws.name}

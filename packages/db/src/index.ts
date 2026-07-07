@@ -349,6 +349,17 @@ export type WorkspaceMetrics = {
   subscription_usd: number;
   message_count: number;
   daily: Array<{ date: string; amount_usd: number }>;
+  daily_by_type: Array<{
+    date: string;
+    usage_usd: number;
+    subscription_usd: number;
+    expense_usd: number;
+    total_usd: number;
+  }>;
+  daily_by_project: {
+    series: Array<{ slug: string; name: string }>;
+    daily: Array<{ date: string } & Record<string, number | string>>;
+  };
   by_project: Array<{ slug: string; name: string; amount_usd: number; percent: number }>;
   by_type: Record<string, number>;
   budget: {
@@ -371,6 +382,108 @@ function aggregateDaily(rows: SpendMessageRow[]) {
   return [...byDay.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, amount_usd]) => ({ date, amount_usd }));
+}
+
+function expenseBucket(messageType: string) {
+  if (messageType === "usage") return "usage_usd" as const;
+  if (messageType === "subscription") return "subscription_usd" as const;
+  return "expense_usd" as const;
+}
+
+function fillDateRange<T extends { date: string }>(
+  points: T[],
+  createEmpty: (date: string) => T,
+): T[] {
+  if (!points.length) return [];
+  const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
+  const map = new Map(sorted.map((point) => [point.date, point]));
+  const first = sorted[0]!;
+  const last = sorted[sorted.length - 1]!;
+  const start = new Date(`${first.date}T00:00:00Z`);
+  const end = new Date(`${last.date}T00:00:00Z`);
+  const filled: T[] = [];
+
+  for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const date = cursor.toISOString().slice(0, 10);
+    filled.push(map.get(date) ?? createEmpty(date));
+  }
+
+  return filled;
+}
+
+function aggregateDailyByType(rows: SpendMessageRow[]) {
+  const byDay = new Map<string, { usage_usd: number; subscription_usd: number; expense_usd: number }>();
+
+  for (const row of rows) {
+    const day = row.created_at.slice(0, 10);
+    const current = byDay.get(day) ?? { usage_usd: 0, subscription_usd: 0, expense_usd: 0 };
+    const bucket = expenseBucket(row.message_type);
+    current[bucket] += row.amount_usd;
+    byDay.set(day, current);
+  }
+
+  const points = [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, values]) => ({
+      date,
+      usage_usd: values.usage_usd,
+      subscription_usd: values.subscription_usd,
+      expense_usd: values.expense_usd,
+      total_usd: values.usage_usd + values.subscription_usd + values.expense_usd,
+    }));
+
+  return fillDateRange(points, (date) => ({
+    date,
+    usage_usd: 0,
+    subscription_usd: 0,
+    expense_usd: 0,
+    total_usd: 0,
+  }));
+}
+
+function aggregateDailyByProject(
+  rows: SpendMessageRow[],
+  topProjects: Array<{ slug: string; name: string }>,
+) {
+  const trackedSlugs = new Set(topProjects.map((project) => project.slug));
+  const series =
+    topProjects.length > 0
+      ? [...topProjects, { slug: "other", name: "Other" }]
+      : [{ slug: "unassigned", name: "Unassigned" }];
+
+  const byDay = new Map<string, Record<string, number>>();
+
+  for (const row of rows) {
+    const day = row.created_at.slice(0, 10);
+    const slug = row.project_slug ?? "unassigned";
+    const key = trackedSlugs.has(slug) ? slug : topProjects.length > 0 ? "other" : slug;
+    const current = byDay.get(day) ?? {};
+    current[key] = (current[key] ?? 0) + row.amount_usd;
+    byDay.set(day, current);
+  }
+
+  const points = [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, values]) => {
+      const point: { date: string } & Record<string, number | string> = { date };
+      for (const item of series) {
+        point[item.slug] = values[item.slug] ?? 0;
+      }
+      return point;
+    });
+
+  const emptyPoint = (date: string) => {
+    const point: { date: string } & Record<string, number | string> = { date };
+    for (const item of series) {
+      point[item.slug] = 0;
+    }
+    return point;
+  };
+
+  return {
+    series,
+    daily: fillDateRange(points, emptyPoint),
+  };
 }
 
 export async function getWorkspaceMetrics(
@@ -435,6 +548,10 @@ export async function getWorkspaceMetrics(
   }
 
   const top = by_project[0] ?? null;
+  const topProjects = by_project.slice(0, 5).map((project) => ({
+    slug: project.slug,
+    name: project.name,
+  }));
 
   const periodLabels: Record<string, string> = {
     day: "Today",
@@ -454,6 +571,8 @@ export async function getWorkspaceMetrics(
     subscription_usd: subscription,
     message_count: rows.length,
     daily: aggregateDaily(rows),
+    daily_by_type: aggregateDailyByType(rows),
+    daily_by_project: aggregateDailyByProject(rows, topProjects),
     by_project,
     by_type,
     budget,

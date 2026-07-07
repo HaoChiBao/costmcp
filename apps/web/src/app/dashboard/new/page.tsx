@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { FormError, FormField, SelectField } from "@/components/ui/form-field";
 import { DashboardPanel } from "@/components/ui/panel";
@@ -52,16 +51,9 @@ export default function NewWorkspacePage() {
   }
 
   return (
-    <DashboardShell userLabel="New account" workspaces={[]}>
-      <header className="dashboard-page-header">
-        <div>
-          <p className="meta-label">Setup</p>
-          <h1 className="heading-sm">New cost account</h1>
-        </div>
-      </header>
-
+    <>
       <DashboardPanel
-        title="Workspace details"
+        title="New cost account"
         description="Create a separate workspace for a team, client, or side project."
       >
         <form onSubmit={handleSubmit} className="dashboard-form">
@@ -93,6 +85,6 @@ export default function NewWorkspacePage() {
           </div>
         </form>
       </DashboardPanel>
-    </DashboardShell>
+    </>
   );
 }

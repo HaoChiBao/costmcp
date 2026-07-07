@@ -9,12 +9,11 @@ type Workspace = {
 };
 
 export function DashboardShell({
-  userLabel,
   workspaces,
   currentSlug,
   children,
 }: {
-  userLabel: string;
+  userLabel?: string;
   workspaces: Workspace[];
   currentSlug?: string;
   children: ReactNode;
@@ -22,16 +21,13 @@ export function DashboardShell({
   return (
     <div className="dashboard">
       <header className="dashboard-topbar">
-        <div className="dashboard-topbar__row">
-          <Link href="/dashboard" className="dashboard-topbar__brand">
-            CostMCP
-          </Link>
-          <div className="dashboard-topbar__account">
-            <span className="dashboard-topbar__meta">{userLabel}</span>
-            <SignOutButton />
-          </div>
-        </div>
+        <Link href="/dashboard" className="dashboard-topbar__brand">
+          CostMCP
+        </Link>
         <WorkspaceSwitcher workspaces={workspaces} currentSlug={currentSlug} />
+        <div className="dashboard-topbar__actions">
+          <SignOutButton />
+        </div>
       </header>
       <main className="dashboard-main">{children}</main>
     </div>
