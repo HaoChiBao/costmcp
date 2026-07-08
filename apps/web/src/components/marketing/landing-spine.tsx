@@ -4,9 +4,10 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   CENTER_BILL_SIZE,
-  CENTER_MAX_DIP_VH,
+  CENTER_FOCAL_TARGET_VH,
   CENTER_SCROLL_SCALE_END,
   CENTER_SCROLL_SCALE_START,
+  CENTER_STICKY_EXTEND_FRACTION,
   HOOK_TOP_OFFSET,
   SIDE_HOOKS,
   SIDE_SCROLL_GROW_MAX,
@@ -66,29 +67,46 @@ export function LandingSpine({ children }: LandingSpineProps) {
 
       const sideOpacity = clamp(1 - growProgress * 0.92, 0.06, 1);
 
-      let centerScrollScale =
+      const centerScrollScale =
         CENTER_SCROLL_SCALE_START +
         growProgress * (CENTER_SCROLL_SCALE_END - CENTER_SCROLL_SCALE_START);
 
-      // Cap growth so the bill's bottom never dips more than CENTER_MAX_DIP_VH below the fold.
       const grow = spine.querySelector<HTMLElement>(".landing-spine__hook-grow");
       const sticky = spine.querySelector<HTMLElement>(".landing-spine__hook-sticky");
+
+      // Keep the bill's vertical center pinned to the focal line as it scales.
+      // The bill scales from its top edge, so while it's small its center sits
+      // above the focal line (fine). Once growth would push the center past the
+      // line, translate the bill up by the excess so the center stays put while
+      // it keeps growing around that point.
+      let centerLift = 0;
       if (grow && sticky) {
         const vh = window.innerHeight;
         const baseHeight = grow.offsetHeight;
         if (baseHeight > 0) {
+          // sticky isn't affected by the grow transform, so its top + the sticky
+          // padding gives the bill's untranslated top edge.
           const billTop = sticky.getBoundingClientRect().top + HOOK_TOP_OFFSET;
-          const maxBottom = vh * (1 + CENTER_MAX_DIP_VH);
-          const maxApplied = (maxBottom - billTop) / baseHeight;
-          const maxCenterScale = maxApplied / CENTER_BILL_SIZE;
-          if (Number.isFinite(maxCenterScale)) {
-            centerScrollScale = clamp(
-              Math.min(centerScrollScale, maxCenterScale),
-              CENTER_SCROLL_SCALE_START,
-              CENTER_SCROLL_SCALE_END,
-            );
-          }
+          const renderedHeight = baseHeight * CENTER_BILL_SIZE * centerScrollScale;
+          const naturalCenter = billTop + renderedHeight / 2;
+          const targetCenter = vh * CENTER_FOCAL_TARGET_VH;
+          centerLift = Math.max(0, naturalCenter - targetCenter);
         }
+      }
+
+      // End the sticky region past the footer's top edge so the bill extends
+      // further down into the footer (by a fraction of its rendered height)
+      // before releasing and scrolling away with the page.
+      const footer = spine.querySelector<HTMLElement>(".site-footer");
+      const track = spine.querySelector<HTMLElement>(".landing-spine__track");
+      if (footer && track) {
+        const spineTop = spine.getBoundingClientRect().top;
+        const footerTop = footer.getBoundingClientRect().top;
+        const renderedBillHeight = grow
+          ? grow.offsetHeight * CENTER_BILL_SIZE * CENTER_SCROLL_SCALE_END
+          : 0;
+        const stopOffset = renderedBillHeight * CENTER_STICKY_EXTEND_FRACTION;
+        track.style.height = `${footerTop - spineTop + stopOffset}px`;
       }
 
       const miniSways = spine.querySelectorAll<HTMLElement>("[data-hook-id]");
@@ -115,6 +133,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
       const hookSway = reduceMotion ? 0 : Math.sin(spineProgress * Math.PI * 6) * 2.25;
 
       spine.style.setProperty("--center-scroll-scale", String(centerScrollScale));
+      spine.style.setProperty("--center-lift", `${centerLift}px`);
       spine.style.setProperty("--side-hooks-opacity", String(sideOpacity));
       spine.style.setProperty("--hook-sway-deg", `${hookSway}deg`);
     };
@@ -141,6 +160,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
       style={
         {
           "--center-scroll-scale": CENTER_SCROLL_SCALE_START,
+          "--center-lift": "0px",
           "--side-hooks-opacity": 1,
           "--hook-sway-deg": "0deg",
           "--hook-top-offset": `${HOOK_TOP_OFFSET}px`,

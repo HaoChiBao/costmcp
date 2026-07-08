@@ -92,11 +92,20 @@ export const CENTER_SCROLL_SCALE_START = 1;
 export const CENTER_SCROLL_SCALE_END = 2.5;
 
 /**
- * Cap on how far the bottom of the center bill may dip below the viewport bottom,
- * as a fraction of viewport height. Growth is clamped so the image bottom never
- * sits lower than (viewport bottom + this × viewport height).
+ * The focal line the bill's vertical center locks onto, as a fraction of the
+ * viewport height (measured top→bottom). While the bill is small it hangs from
+ * the top with its center above this line; once scaling would push its center
+ * past the line, the bill is translated up so the center stays pinned here while
+ * it keeps growing. 0.5 = viewport middle.
  */
-export const CENTER_MAX_DIP_VH = 0.3;
+export const CENTER_FOCAL_TARGET_VH = 0.5;
+
+/**
+ * How far past the footer's top edge the sticky bill keeps following the viewport,
+ * expressed as a fraction of the rendered (scaled) bill image height. Larger values
+ * let the bill extend further down into the footer before it releases.
+ */
+export const CENTER_STICKY_EXTEND_FRACTION = 0.12;
 
 function toSideHook(def: HookDef, id: string, sign: "-" | "+"): SideHookConfig {
   return {

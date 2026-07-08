@@ -604,7 +604,7 @@ a {
 }
 
 .landing-spine__hook-grow {
-  transform: translateY(calc(-1 * var(--hook-lift, 25%)))
+  transform: translateY(calc(-1 * var(--center-lift, 0px)))
     scale(calc(var(--hook-scale) * var(--center-scroll-scale, 1)));
   transform-origin: top center;
   will-change: transform;
