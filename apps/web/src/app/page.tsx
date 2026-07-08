@@ -16,9 +16,8 @@ export default function Home() {
       <LandingSpine>
         <LandingHero />
         <FeaturesSection />
+        <SiteFooter />
       </LandingSpine>
-
-      <SiteFooter />
     </div>
   );
 }

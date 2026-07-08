@@ -8,12 +8,22 @@ import {
   type CSSProperties,
 } from "react";
 import { HERO_COST_IMAGES } from "@/components/marketing/hero-cost-images";
+import { HeroPaintDefs, HeroTextPaint } from "@/components/marketing/hero-text-paint";
 
 const SWITCH_MS = 800;
 /** Headline scale for KNOW YOUR COST. */
 const HEADLINE_SCALE = 1.5;
-/** Cost is 3× the width-matched baseline, scaled with the headline. */
-const COST_SIZE_MULTIPLIER = 3 * HEADLINE_SCALE;
+/** Cost is 3× the width-matched baseline, scaled with the headline, then tuned down. */
+const COST_SIZE_MULTIPLIER = ((3 * HEADLINE_SCALE) / 1.5) * 1.2;
+
+function HeadlineWord({ children }: { children: string }) {
+  return (
+    <span className="hero__headline-word-stack">
+      <HeroTextPaint variant="word">{children}</HeroTextPaint>
+      <span className="hero__headline-word">{children}</span>
+    </span>
+  );
+}
 
 function preloadHeroCostImages() {
   return Promise.all(
@@ -83,7 +93,7 @@ export function HeroHeadline() {
       }
 
       let finalSize = size * COST_SIZE_MULTIPLIER;
-      const maxWidth = Math.min(window.innerWidth * 0.92, 864 * HEADLINE_SCALE);
+      const maxWidth = Math.min(window.innerWidth * 0.92, ((864 * HEADLINE_SCALE) / 1.5) * 1.2);
 
       cost.style.fontSize = `${finalSize}px`;
       while (cost.scrollWidth > maxWidth && finalSize > 48) {
@@ -123,9 +133,10 @@ export function HeroHeadline() {
 
   return (
     <h1 className="hero__headline">
+      <HeroPaintDefs />
       <span ref={rowRef} className="hero__headline-row">
-        <span className="hero__headline-word">KNOW</span>
-        <span className="hero__headline-word">YOUR</span>
+        <HeadlineWord>KNOW</HeadlineWord>
+        <HeadlineWord>YOUR</HeadlineWord>
       </span>
       <span
         ref={costRef}
@@ -133,10 +144,11 @@ export function HeroHeadline() {
         style={costFontStyle}
         aria-label="COST"
       >
+        <HeroTextPaint variant="cost">COST</HeroTextPaint>
         {HERO_COST_IMAGES.map((image, index) => (
           <span
             key={image.src}
-            className="hero__cost-layer"
+            className={`hero__cost-layer${index === 0 ? " hero__cost-layer--anchor" : ""}`}
             style={{
               backgroundImage: `url(${image.src})`,
               backgroundPosition: image.position,

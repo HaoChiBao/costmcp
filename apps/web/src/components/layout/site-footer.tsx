@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -42,9 +43,16 @@ export function SiteFooter() {
         </div>
       </div>
 
-      <p className="site-footer__stamp" aria-hidden="true">
-        CostMCP
-      </p>
+      <div className="site-footer__banner" aria-hidden="true">
+        <Image
+          src="/images/footer-reaching-hands.png"
+          alt=""
+          width={1024}
+          height={683}
+          className="site-footer__banner-image"
+          sizes="100vw"
+        />
+      </div>
     </footer>
   );
 }

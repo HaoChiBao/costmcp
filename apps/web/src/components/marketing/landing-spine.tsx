@@ -3,10 +3,13 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
-  HOOK_SCALE_END,
-  HOOK_SCALE_START,
+  CENTER_BILL_SIZE,
+  CENTER_MAX_DIP_VH,
+  CENTER_SCROLL_SCALE_END,
+  CENTER_SCROLL_SCALE_START,
   HOOK_TOP_OFFSET,
   SIDE_HOOKS,
+  SIDE_SCROLL_GROW_MAX,
   scaledBillSize,
 } from "@/components/marketing/hook-gallery-config";
 
@@ -61,9 +64,48 @@ export function LandingSpine({ children }: LandingSpineProps) {
           : 0
         : clamp(scrollInHero / growDistance, 0, 1);
 
-      const centerScale =
-        HOOK_SCALE_START + growProgress * (HOOK_SCALE_END - HOOK_SCALE_START);
       const sideOpacity = clamp(1 - growProgress * 0.92, 0.06, 1);
+
+      let centerScrollScale =
+        CENTER_SCROLL_SCALE_START +
+        growProgress * (CENTER_SCROLL_SCALE_END - CENTER_SCROLL_SCALE_START);
+
+      // Cap growth so the bill's bottom never dips more than CENTER_MAX_DIP_VH below the fold.
+      const grow = spine.querySelector<HTMLElement>(".landing-spine__hook-grow");
+      const sticky = spine.querySelector<HTMLElement>(".landing-spine__hook-sticky");
+      if (grow && sticky) {
+        const vh = window.innerHeight;
+        const baseHeight = grow.offsetHeight;
+        if (baseHeight > 0) {
+          const billTop = sticky.getBoundingClientRect().top + HOOK_TOP_OFFSET;
+          const maxBottom = vh * (1 + CENTER_MAX_DIP_VH);
+          const maxApplied = (maxBottom - billTop) / baseHeight;
+          const maxCenterScale = maxApplied / CENTER_BILL_SIZE;
+          if (Number.isFinite(maxCenterScale)) {
+            centerScrollScale = clamp(
+              Math.min(centerScrollScale, maxCenterScale),
+              CENTER_SCROLL_SCALE_START,
+              CENTER_SCROLL_SCALE_END,
+            );
+          }
+        }
+      }
+
+      const miniSways = spine.querySelectorAll<HTMLElement>("[data-hook-id]");
+      miniSways.forEach((el) => {
+        const hook = SIDE_HOOKS.find((item) => item.id === el.dataset.hookId);
+        if (!hook) return;
+
+        const hookGrowProgress = reduceMotion
+          ? growProgress > 0.5
+            ? 1
+            : 0
+          : clamp(growProgress * hook.scrollGrowSpeed, 0, 1);
+
+        const baseScale = scaledBillSize(hook.scale);
+        const scrollScale = baseScale * (1 + hookGrowProgress * SIDE_SCROLL_GROW_MAX);
+        el.style.setProperty("--hook-scale", String(scrollScale));
+      });
 
       const spineProgress = clamp(
         scrollInHero / Math.max((spine.offsetHeight - window.innerHeight) * 0.85, 1),
@@ -72,7 +114,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
       );
       const hookSway = reduceMotion ? 0 : Math.sin(spineProgress * Math.PI * 6) * 2.25;
 
-      spine.style.setProperty("--center-hook-scale", String(centerScale));
+      spine.style.setProperty("--center-scroll-scale", String(centerScrollScale));
       spine.style.setProperty("--side-hooks-opacity", String(sideOpacity));
       spine.style.setProperty("--hook-sway-deg", `${hookSway}deg`);
     };
@@ -98,7 +140,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
       ref={spineRef}
       style={
         {
-          "--center-hook-scale": HOOK_SCALE_START,
+          "--center-scroll-scale": CENTER_SCROLL_SCALE_START,
           "--side-hooks-opacity": 1,
           "--hook-sway-deg": "0deg",
           "--hook-top-offset": `${HOOK_TOP_OFFSET}px`,
@@ -122,6 +164,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
             >
               <div
                 className={`landing-spine__hook-mini-sway${reduceMotion ? " landing-spine__hook-mini-sway--still" : ""}`}
+                data-hook-id={hook.id}
                 style={
                   {
                     "--hook-scale": scaledBillSize(hook.scale),
@@ -152,11 +195,15 @@ export function LandingSpine({ children }: LandingSpineProps) {
                 } as CSSProperties
               }
             >
-              <div className="landing-spine__hook-grow" onPointerEnter={startBobbing}>
+              <div
+                className="landing-spine__hook-grow"
+                style={{ "--hook-scale": CENTER_BILL_SIZE } as CSSProperties}
+                onPointerEnter={startBobbing}
+              >
                 <div
                   className={`landing-spine__hook${bobbing ? " landing-spine__hook--bobbing" : ""}`}
                 >
-                  <HookImage className="landing-spine__hook-image landing-spine__hook-image--hero" />
+                  <HookImage className="landing-spine__hook-image landing-spine__hook-image--mini" />
                 </div>
               </div>
             </div>
