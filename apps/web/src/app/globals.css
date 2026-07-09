@@ -634,11 +634,27 @@ a {
 
 .landing-spine__hook-image {
   display: block;
-  width: var(--hook-width);
-  height: var(--hook-height);
+  width: min(var(--hook-width), 30vw);
+  height: auto;
+  max-height: 100vh;
+  max-height: 100dvh;
   object-fit: contain;
   object-position: top center;
   vertical-align: top;
+}
+
+/* Side bills — cap rendered height (after scale) to the viewport */
+.landing-spine__hook-mini .landing-spine__hook-image {
+  max-height: calc(100vh / var(--hook-scale));
+  max-height: calc(100dvh / var(--hook-scale));
+}
+
+/* Center bill — parent applies hook-scale × center-scroll-scale */
+.landing-spine__hook-grow .landing-spine__hook-image {
+  max-height: calc(100vh / (var(--hook-scale) * var(--center-scroll-scale, 1)));
+  max-height: calc(100dvh / (var(--hook-scale) * var(--center-scroll-scale, 1)));
+  width: auto;
+  max-width: min(var(--hook-width), 35vw);
 }
 
 .landing-spine__hook-image--mini {
