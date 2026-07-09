@@ -35,7 +35,14 @@ export async function middleware(request: NextRequest) {
 
   if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    const next = request.nextUrl.searchParams.get("next");
+    if (next && next.startsWith("/")) {
+      url.pathname = next.split("?")[0];
+      url.search = next.includes("?") ? next.slice(next.indexOf("?")) : "";
+    } else {
+      url.pathname = "/dashboard";
+      url.search = "";
+    }
     return NextResponse.redirect(url);
   }
 

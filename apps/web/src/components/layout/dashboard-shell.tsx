@@ -26,6 +26,14 @@ export function DashboardShell({
         </Link>
         <WorkspaceSwitcher workspaces={workspaces} currentSlug={currentSlug} />
         <div className="dashboard-topbar__actions">
+          {currentSlug ? (
+            <Link
+              href={`/dashboard/${currentSlug}/connections`}
+              className="btn btn--ghost dashboard-topbar__link"
+            >
+              Connect
+            </Link>
+          ) : null}
           <SignOutButton />
         </div>
       </header>
