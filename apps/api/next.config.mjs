@@ -1,5 +1,11 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   transpilePackages: ["@costmcp/core", "@costmcp/db"],
   async rewrites() {
     // OAuth discovery documents must be served from the root .well-known path
