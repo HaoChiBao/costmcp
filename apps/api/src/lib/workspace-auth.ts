@@ -99,3 +99,80 @@ export function periodLabel(period: ReturnType<typeof parsePeriod>): string {
   };
   return labels[period] ?? "This month";
 }
+
+export function previousPeriodLabel(period: ReturnType<typeof parsePeriod>): string {
+  const labels: Record<string, string> = {
+    day: "Yesterday",
+    week: "Prior 7 days",
+    month: "Last month",
+    quarter: "Last quarter",
+    year: "Prior year (YTD)",
+    all: "Previous period",
+  };
+  return labels[period] ?? "Previous period";
+}
+
+export function periodEnd(): Date {
+  const end = new Date();
+  end.setUTCHours(23, 59, 59, 999);
+  return end;
+}
+
+export function previousPeriodRange(
+  period: ReturnType<typeof parsePeriod>,
+): { since: Date; until: Date } | null {
+  if (period === "all") return null;
+
+  const now = periodEnd();
+
+  switch (period) {
+    case "day": {
+      const until = new Date(now);
+      until.setUTCDate(until.getUTCDate() - 1);
+      const since = new Date(until);
+      since.setUTCHours(0, 0, 0, 0);
+      return { since, until };
+    }
+    case "week": {
+      const currentStart = periodStart("week");
+      if (!currentStart) return null;
+      const until = new Date(currentStart);
+      until.setUTCMilliseconds(until.getUTCMilliseconds() - 1);
+      const since = new Date(until);
+      since.setUTCDate(since.getUTCDate() - 6);
+      since.setUTCHours(0, 0, 0, 0);
+      return { since, until };
+    }
+    case "month": {
+      const currentStart = periodStart("month");
+      if (!currentStart) return null;
+      const until = new Date(currentStart);
+      until.setUTCMilliseconds(until.getUTCMilliseconds() - 1);
+      const since = new Date(until);
+      since.setUTCDate(1);
+      since.setUTCHours(0, 0, 0, 0);
+      return { since, until };
+    }
+    case "quarter": {
+      const currentStart = periodStart("quarter");
+      if (!currentStart) return null;
+      const until = new Date(currentStart);
+      until.setUTCMilliseconds(until.getUTCMilliseconds() - 1);
+      const since = new Date(currentStart);
+      since.setUTCMonth(since.getUTCMonth() - 3);
+      since.setUTCHours(0, 0, 0, 0);
+      return { since, until };
+    }
+    case "year": {
+      const currentStart = periodStart("year");
+      if (!currentStart) return null;
+      const since = new Date(currentStart);
+      since.setUTCFullYear(since.getUTCFullYear() - 1);
+      const until = new Date(now);
+      until.setUTCFullYear(until.getUTCFullYear() - 1);
+      return { since, until };
+    }
+    default:
+      return null;
+  }
+}

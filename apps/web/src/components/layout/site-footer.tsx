@@ -48,8 +48,8 @@ export function SiteFooter() {
         <Image
           src="/images/footer-reaching-hands.png"
           alt=""
-          width={1024}
-          height={267}
+          width={2048}
+          height={682}
           className="site-footer__banner-image"
           sizes="100vw"
         />

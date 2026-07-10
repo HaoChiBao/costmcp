@@ -117,6 +117,69 @@ export type ActivityResponse = {
 
 export type Period = "day" | "week" | "month" | "quarter" | "year" | "all";
 
+export type SpendFilters = {
+  project?: string;
+  environment?: string;
+  vendor?: string;
+  type?: string;
+};
+
+export type MetricsComparison = {
+  period: string;
+  filters: SpendFilters;
+  current: {
+    period_label: string;
+    total_usd: number;
+    message_count: number;
+  };
+  previous: {
+    period_label: string;
+    total_usd: number;
+    message_count: number;
+  };
+  delta_usd: number;
+  delta_percent: number | null;
+  insight: string | null;
+};
+
+export const ENVIRONMENT_OPTIONS = [
+  { value: "", label: "All environments" },
+  { value: "production", label: "Production" },
+  { value: "staging", label: "Staging" },
+  { value: "development", label: "Development" },
+] as const;
+
+export function buildSpendQuery(
+  period: Period,
+  filters: SpendFilters,
+  extra?: Record<string, string>,
+) {
+  const params = new URLSearchParams({ period });
+  if (filters.project) params.set("project", filters.project);
+  if (filters.environment) params.set("environment", filters.environment);
+  if (filters.vendor) params.set("vendor", filters.vendor);
+  if (filters.type) params.set("type", filters.type);
+  if (extra) {
+    for (const [key, value] of Object.entries(extra)) {
+      if (value) params.set(key, value);
+    }
+  }
+  return params.toString();
+}
+
+export function filtersKey(filters: SpendFilters) {
+  return [filters.project ?? "", filters.environment ?? "", filters.vendor ?? "", filters.type ?? ""].join(
+    "|",
+  );
+}
+
+export function formatDeltaPercent(delta: number | null) {
+  if (delta == null) return "—";
+  const pct = Math.round(Math.abs(delta) * 100);
+  if (pct === 0) return "0%";
+  return `${delta > 0 ? "+" : "-"}${pct}%`;
+}
+
 export const PERIODS: Array<{ id: Period; label: string }> = [
   { id: "day", label: "1D" },
   { id: "week", label: "1W" },

@@ -4,9 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   type ActivityResponse,
+  type MetricsComparison,
   type Period,
+  type SpendFilters,
   type WorkspaceMetrics,
   PERIODS,
+  buildSpendQuery,
+  formatDeltaPercent,
   formatUsd,
   normalizeWorkspaceMetrics,
 } from "@/lib/metrics";
@@ -20,6 +24,7 @@ import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { AddExpenseForm } from "@/components/metrics/add-expense-form";
 import { AddSubscriptionForm } from "@/components/metrics/add-subscription-form";
 import { LedgerTable } from "@/components/metrics/ledger-table";
+import { SpendFiltersBar } from "@/components/metrics/spend-filters-bar";
 import { SpendChart } from "@/components/metrics/spend-chart";
 import { WorkspaceSidebar } from "@/components/dashboard/workspace-sidebar";
 import { WorkspaceStructure } from "@/components/dashboard/workspace-structure";
@@ -70,10 +75,12 @@ function toDateValue(iso: string) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function readCachedMetrics(workspaceSlug: string, period: Period) {
+function readCachedMetrics(workspaceSlug: string, period: Period, filters: SpendFilters) {
   const cached =
-    getMetricsCache(workspaceSlug, period) ??
-    (period === "month" ? getLatestMetricsForWorkspace(workspaceSlug) : undefined);
+    getMetricsCache(workspaceSlug, period, filters) ??
+    (period === "month" && !filtersKeyActive(filters)
+      ? getLatestMetricsForWorkspace(workspaceSlug)
+      : undefined);
 
   if (!cached) return undefined;
 
@@ -83,16 +90,25 @@ function readCachedMetrics(workspaceSlug: string, period: Period) {
   };
 }
 
+function filtersKeyActive(filters: SpendFilters) {
+  return Boolean(filters.project || filters.environment || filters.vendor || filters.type);
+}
+
 export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }: Props) {
   const [org, setOrg] = useState(initialOrg);
   const [period, setPeriod] = useState<Period>("month");
+  const [filters, setFilters] = useState<SpendFilters>({});
+  const [comparison, setComparison] = useState<MetricsComparison | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [metrics, setMetrics] = useState<WorkspaceMetrics | null>(
-    () => readCachedMetrics(workspaceSlug, "month")?.metrics ?? null,
+    () => readCachedMetrics(workspaceSlug, "month", {})?.metrics ?? null,
   );
   const [activity, setActivity] = useState<ActivityResponse | null>(
-    () => readCachedMetrics(workspaceSlug, "month")?.activity ?? null,
+    () => readCachedMetrics(workspaceSlug, "month", {})?.activity ?? null,
   );
-  const [initialLoad, setInitialLoad] = useState(() => !readCachedMetrics(workspaceSlug, "month"));
+  const [initialLoad, setInitialLoad] = useState(
+    () => !readCachedMetrics(workspaceSlug, "month", {}),
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [composer, setComposer] = useState<Composer>(null);
@@ -102,13 +118,23 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
 
   function applyPeriod(next: Period) {
     if (next === period) return;
-    const cached = readCachedMetrics(workspaceSlug, next);
+    const cached = readCachedMetrics(workspaceSlug, next, filters);
     if (cached) {
       setMetrics(cached.metrics);
       setActivity(cached.activity);
       setInitialLoad(false);
     }
     setPeriod(next);
+  }
+
+  function applyFilters(next: SpendFilters) {
+    const cached = readCachedMetrics(workspaceSlug, period, next);
+    if (cached) {
+      setMetrics(cached.metrics);
+      setActivity(cached.activity);
+      setInitialLoad(false);
+    }
+    setFilters(next);
   }
 
   const refreshOrg = useCallback(async () => {
@@ -142,14 +168,16 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
 
   useEffect(() => {
     let cancelled = false;
-    const cached = reloadToken === 0 ? readCachedMetrics(workspaceSlug, period) : undefined;
+    const cached =
+      reloadToken === 0 ? readCachedMetrics(workspaceSlug, period, filters) : undefined;
 
     if (cached) {
       setMetrics(cached.metrics);
       setActivity(cached.activity);
       setInitialLoad(false);
     } else if (reloadToken === 0) {
-      const fallback = getLatestMetricsForWorkspace(workspaceSlug);
+      const fallback =
+        !filtersKeyActive(filters) ? getLatestMetricsForWorkspace(workspaceSlug) : undefined;
       if (fallback) {
         setMetrics(normalizeWorkspaceMetrics(fallback.metrics));
         setActivity(fallback.activity);
@@ -180,11 +208,20 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
 
       const headers = { Authorization: `Bearer ${session.access_token}` };
       const base = `${API_URL}/api/v1/workspaces/${workspaceSlug}`;
+      const query = buildSpendQuery(period, filters);
 
       try {
-        const [metricsRes, activityRes] = await Promise.all([
-          fetch(`${base}/metrics?period=${period}`, { headers }),
-          fetch(`${base}/activity?period=${period}&limit=20`, { headers }),
+        const metricsPromise = fetch(`${base}/metrics?${query}`, { headers });
+        const activityPromise = fetch(`${base}/activity?${query}&limit=20`, { headers });
+        const comparePromise =
+          period === "all"
+            ? Promise.resolve(null)
+            : fetch(`${base}/metrics/compare?${query}`, { headers });
+
+        const [metricsRes, activityRes, compareRes] = await Promise.all([
+          metricsPromise,
+          activityPromise,
+          comparePromise,
         ]);
         if (!metricsRes.ok) throw new Error("Failed to load metrics");
 
@@ -194,15 +231,23 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
         const nextActivity = activityRes.ok
           ? ((await activityRes.json()) as ActivityResponse)
           : null;
+        const nextComparison =
+          compareRes?.ok ? ((await compareRes.json()) as MetricsComparison) : null;
 
         if (cancelled) return;
 
-        setMetricsCache(workspaceSlug, period, {
-          metrics: nextMetrics,
-          activity: nextActivity,
-        });
+        setMetricsCache(
+          workspaceSlug,
+          period,
+          {
+            metrics: nextMetrics,
+            activity: nextActivity,
+          },
+          filters,
+        );
         setMetrics(nextMetrics);
         setActivity(nextActivity);
+        setComparison(nextComparison);
       } catch {
         if (!cancelled && !cached) {
           setError("Could not load spend. Is the API running on port 3000?");
@@ -220,7 +265,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
     return () => {
       cancelled = true;
     };
-  }, [workspaceSlug, period, reloadToken]);
+  }, [workspaceSlug, period, filters, reloadToken]);
 
   useEffect(() => {
     if (initialLoad || refreshing) return;
@@ -237,24 +282,30 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
       const headers = { Authorization: `Bearer ${session.access_token}` };
       const base = `${API_URL}/api/v1/workspaces/${workspaceSlug}`;
       const targets = PERIODS.map((item) => item.id).filter(
-        (item) => item !== period && !getMetricsCache(workspaceSlug, item),
+        (item) => item !== period && !getMetricsCache(workspaceSlug, item, filters),
       );
 
       await Promise.all(
         targets.map(async (targetPeriod) => {
           try {
+            const query = buildSpendQuery(targetPeriod, filters);
             const [metricsRes, activityRes] = await Promise.all([
-              fetch(`${base}/metrics?period=${targetPeriod}`, { headers }),
-              fetch(`${base}/activity?period=${targetPeriod}&limit=20`, { headers }),
+              fetch(`${base}/metrics?${query}`, { headers }),
+              fetch(`${base}/activity?${query}&limit=20`, { headers }),
             ]);
             if (!metricsRes.ok || cancelled) return;
 
-            setMetricsCache(workspaceSlug, targetPeriod, {
-              metrics: normalizeWorkspaceMetrics((await metricsRes.json()) as WorkspaceMetrics),
-              activity: activityRes.ok
-                ? ((await activityRes.json()) as ActivityResponse)
-                : null,
-            });
+            setMetricsCache(
+              workspaceSlug,
+              targetPeriod,
+              {
+                metrics: normalizeWorkspaceMetrics((await metricsRes.json()) as WorkspaceMetrics),
+                activity: activityRes.ok
+                  ? ((await activityRes.json()) as ActivityResponse)
+                  : null,
+              },
+              filters,
+            );
           } catch {
             // Best-effort prefetch only.
           }
@@ -270,7 +321,39 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [workspaceSlug, period, initialLoad, refreshing, reloadToken]);
+  }, [workspaceSlug, period, filters, initialLoad, refreshing, reloadToken]);
+
+  async function exportCsv() {
+    setExporting(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Not signed in");
+        return;
+      }
+      const query = buildSpendQuery(period, filters, { format: "csv" });
+      const res = await fetch(
+        `${API_URL}/api/v1/workspaces/${workspaceSlug}/activity?${query}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } },
+      );
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `costmcp-${workspaceSlug}-${period}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Could not export CSV.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function deleteRow(id: string) {
     if (!window.confirm("Remove this entry from the ledger?")) return;
@@ -376,6 +459,26 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
             <p className="dashboard-hero__amount tabular-nums" aria-live="polite">
               {formatUsd(metrics.total_usd)}
             </p>
+            {comparison && period !== "all" ? (
+              <p
+                className={`dashboard-hero__delta tabular-nums${
+                  comparison.delta_percent != null && comparison.delta_percent > 0
+                    ? " dashboard-hero__delta--up"
+                    : comparison.delta_percent != null && comparison.delta_percent < 0
+                      ? " dashboard-hero__delta--down"
+                      : ""
+                }`}
+              >
+                {formatDeltaPercent(comparison.delta_percent)} vs{" "}
+                {comparison.previous.period_label.toLowerCase()}
+                {comparison.delta_usd !== 0
+                  ? ` (${comparison.delta_usd > 0 ? "+" : ""}${formatUsd(comparison.delta_usd)})`
+                  : ""}
+              </p>
+            ) : null}
+            {comparison?.insight ? (
+              <p className="dashboard-hero__insight">{comparison.insight}</p>
+            ) : null}
           </div>
           <dl className="dashboard-hero__stats">
             <div className="dashboard-hero__stat">
@@ -398,6 +501,15 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
             </div>
           </dl>
         </div>
+
+        <SpendFiltersBar
+          org={org}
+          filters={filters}
+          onChange={applyFilters}
+          onExport={() => void exportCsv()}
+          exporting={exporting}
+          disabled={refreshing}
+        />
       </DashboardPanel>
 
       <div className="dashboard-layout">

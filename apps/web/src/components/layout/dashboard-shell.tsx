@@ -40,7 +40,7 @@ export function DashboardShell({
               href={`/dashboard/${currentSlug}/connections`}
               className="btn btn--ghost dashboard-topbar__link"
             >
-              Connect
+              Connections &amp; API keys
             </Link>
           ) : null}
           <SignOutButton />

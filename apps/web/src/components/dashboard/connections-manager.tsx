@@ -315,10 +315,10 @@ export function ConnectionsManager({
   return (
     <div className="connections">
       <header className="headline-block headline-block--left">
-        <h1 className="display">Connect to AI clients</h1>
+        <h1 className="display">Connections &amp; API keys</h1>
         <p className="headline-block__sub">
-          Give Cursor, Claude, or ChatGPT secure access to this workspace&rsquo;s cost
-          tools over the Model Context Protocol.
+          Connect Cursor, Claude, or ChatGPT over MCP with OAuth, or create API keys for
+          CI pipelines, SDKs, and scripts.
         </p>
       </header>
 

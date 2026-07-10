@@ -1,9 +1,10 @@
-import { getWorkspaceMetrics, getWorkspaceSpendMessages } from "@costmcp/db";
+import { getWorkspaceMetrics } from "@costmcp/db";
 import {
   authenticateWorkspaceAccess,
   parsePeriod,
   periodStart,
 } from "@/lib/workspace-auth";
+import { parseSpendQueryFilters, toDbSpendFilters } from "@/lib/spend-query";
 
 export async function GET(
   request: Request,
@@ -16,15 +17,11 @@ export async function GET(
   const url = new URL(request.url);
   const period = parsePeriod(url.searchParams.get("period"));
   const since = periodStart(period);
-  const project = url.searchParams.get("project");
-  const messageType = url.searchParams.get("type");
-  const environment = url.searchParams.get("environment");
+  const queryFilters = parseSpendQueryFilters(url);
 
   try {
     const metrics = await getWorkspaceMetrics(auth.userClient, auth.workspaceId, period, since, {
-      projectSlug: project,
-      messageType,
-      environment,
+      ...toDbSpendFilters(queryFilters),
     });
     return Response.json(metrics);
   } catch {

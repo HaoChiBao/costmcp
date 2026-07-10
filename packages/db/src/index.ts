@@ -390,9 +390,11 @@ export async function getMonthlySpend(client: SupabaseClient<Database>, workspac
 
 export type SpendFilters = {
   since?: Date | null;
+  until?: Date | null;
   projectSlug?: string | null;
   messageType?: string | null;
   environment?: string | null;
+  vendorSlug?: string | null;
 };
 
 export type SpendMessageRow = {
@@ -438,6 +440,9 @@ export async function getWorkspaceSpendMessages(
   if (filters.since) {
     query = query.gte("occurred_at", filters.since.toISOString());
   }
+  if (filters.until) {
+    query = query.lte("occurred_at", filters.until.toISOString());
+  }
   if (projectId) {
     query = query.eq("project_id", projectId);
   }
@@ -451,7 +456,29 @@ export async function getWorkspaceSpendMessages(
   const { data, error } = await query;
   if (error) throw error;
 
-  const projectIds = [...new Set((data ?? []).map((r) => r.project_id).filter(Boolean))] as string[];
+  let rows = data ?? [];
+
+  if (filters.vendorSlug) {
+    const vendorSlug = filters.vendorSlug.toLowerCase();
+    const { data: vendor } = await client
+      .from("vendors")
+      .select("id, slug, name")
+      .eq("workspace_id", workspaceId)
+      .eq("slug", vendorSlug)
+      .maybeSingle();
+
+    rows = rows.filter((row) => {
+      if (vendor?.id && row.vendor_id === vendor.id) return true;
+      const metadata = (row.metadata as Record<string, unknown>) ?? {};
+      const metaVendor =
+        typeof metadata.vendor === "string" ? slugifyName(metadata.vendor) : null;
+      const provider =
+        typeof metadata.provider === "string" ? slugifyName(metadata.provider) : null;
+      return metaVendor === vendorSlug || provider === vendorSlug;
+    });
+  }
+
+  const projectIds = [...new Set(rows.map((r) => r.project_id).filter(Boolean))] as string[];
   let projectMap = new Map<string, { slug: string; name: string }>();
   if (projectIds.length) {
     const { data: projects, error: projectError } = await client
@@ -462,7 +489,7 @@ export async function getWorkspaceSpendMessages(
     projectMap = new Map((projects ?? []).map((p) => [p.id, { slug: p.slug, name: p.name }]));
   }
 
-  return (data ?? []).map((row) => {
+  return rows.map((row) => {
     const project = row.project_id ? projectMap.get(row.project_id as string) : null;
     return {
       id: row.id as string,
