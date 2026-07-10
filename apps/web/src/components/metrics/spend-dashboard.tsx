@@ -23,13 +23,11 @@ import {
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { AddExpenseForm } from "@/components/metrics/add-expense-form";
 import { AddSubscriptionForm } from "@/components/metrics/add-subscription-form";
-import { LedgerTable } from "@/components/metrics/ledger-table";
+import { ActivityFeed } from "@/components/metrics/activity-feed";
 import { SpendFiltersBar } from "@/components/metrics/spend-filters-bar";
 import { SpendChart } from "@/components/metrics/spend-chart";
-import { WorkspaceSidebar } from "@/components/dashboard/workspace-sidebar";
-import { WorkspaceStructure } from "@/components/dashboard/workspace-structure";
+import { TransactionDetail } from "@/components/metrics/transaction-detail";
 import { Button } from "@/components/ui/button";
-import { DashboardPanel } from "@/components/ui/panel";
 import { Spinner } from "@/components/ui/spinner";
 import type { OrgTree } from "@/lib/api";
 
@@ -58,8 +56,7 @@ function formatActivityDate(iso: string) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+    year: "numeric",
   }).format(new Date(iso));
 }
 
@@ -94,12 +91,68 @@ function filtersKeyActive(filters: SpendFilters) {
   return Boolean(filters.project || filters.environment || filters.vendor || filters.type);
 }
 
+function ActivitySummary({ metrics }: { metrics: WorkspaceMetrics }) {
+  return (
+    <div className="activity-summary">
+      <h3 className="activity-summary__title">Period summary</h3>
+      <p className="activity-summary__amount tabular-nums">{formatUsd(metrics.total_usd)}</p>
+      <p className="text-muted" style={{ fontSize: "13px", margin: 0 }}>
+        {metrics.period_label}
+      </p>
+      <dl className="activity-summary__stats">
+        <div className="activity-summary__stat">
+          <dt>Transactions</dt>
+          <dd className="tabular-nums">{metrics.message_count}</dd>
+        </div>
+        <div className="activity-summary__stat">
+          <dt>Budget left</dt>
+          <dd className="tabular-nums">
+            {metrics.budget
+              ? metrics.budget.percent_used >= 1
+                ? formatUsd(metrics.budget.spent - metrics.budget.limit)
+                : formatUsd(metrics.budget.remaining)
+              : "—"}
+          </dd>
+        </div>
+        <div className="activity-summary__stat">
+          <dt>Top project</dt>
+          <dd>{metrics.top_project?.name ?? "—"}</dd>
+        </div>
+      </dl>
+      {metrics.budget ? (
+        <div style={{ marginTop: "var(--spacing-16)" }}>
+          <div className="budget-meter">
+            <div className="budget-meter__track">
+              <div
+                className={`budget-meter__fill${
+                  metrics.budget.percent_used >= 1
+                    ? " budget-meter__fill--over"
+                    : metrics.budget.percent_used >= 0.8
+                      ? " budget-meter__fill--warn"
+                      : ""
+                }`}
+                style={{
+                  width: `${Math.min(100, Math.round(metrics.budget.percent_used * 100))}%`,
+                }}
+              />
+            </div>
+          </div>
+          <p className="text-muted" style={{ fontSize: "12px", marginTop: "var(--spacing-8)" }}>
+            {formatUsd(metrics.budget.spent)} of {formatUsd(metrics.budget.limit)} used
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }: Props) {
   const [org, setOrg] = useState(initialOrg);
   const [period, setPeriod] = useState<Period>("month");
   const [filters, setFilters] = useState<SpendFilters>({});
   const [comparison, setComparison] = useState<MetricsComparison | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [metrics, setMetrics] = useState<WorkspaceMetrics | null>(
     () => readCachedMetrics(workspaceSlug, "month", {})?.metrics ?? null,
   );
@@ -113,6 +166,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
   const [error, setError] = useState<string | null>(null);
   const [composer, setComposer] = useState<Composer>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -125,6 +179,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
       setInitialLoad(false);
     }
     setPeriod(next);
+    setSelectedId(null);
   }
 
   function applyFilters(next: SpendFilters) {
@@ -135,6 +190,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
       setInitialLoad(false);
     }
     setFilters(next);
+    setSelectedId(null);
   }
 
   const refreshOrg = useCallback(async () => {
@@ -212,7 +268,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
 
       try {
         const metricsPromise = fetch(`${base}/metrics?${query}`, { headers });
-        const activityPromise = fetch(`${base}/activity?${query}&limit=20`, { headers });
+        const activityPromise = fetch(`${base}/activity?${query}&limit=50`, { headers });
         const comparePromise =
           period === "all"
             ? Promise.resolve(null)
@@ -291,7 +347,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
             const query = buildSpendQuery(targetPeriod, filters);
             const [metricsRes, activityRes] = await Promise.all([
               fetch(`${base}/metrics?${query}`, { headers }),
-              fetch(`${base}/activity?${query}&limit=20`, { headers }),
+              fetch(`${base}/activity?${query}&limit=50`, { headers }),
             ]);
             if (!metricsRes.ok || cancelled) return;
 
@@ -376,6 +432,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
         setError(body?.error ?? "Could not delete entry.");
         return;
       }
+      if (selectedId === id) setSelectedId(null);
       reloadDashboard();
     } catch {
       setError("Could not delete entry.");
@@ -390,6 +447,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
     activity?.activity.map((row) => ({
       id: row.id,
       date: formatActivityDate(row.occurred_at ?? row.created_at),
+      occurredAt: row.occurred_at ?? row.created_at,
       label: row.label,
       meta: row.project_name,
       projectSlug: row.project_slug,
@@ -401,25 +459,39 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
         row.message_type === "expense" || row.message_type === "subscription",
     })) ?? [];
 
+  const selectedRow = ledgerRows.find((row) => row.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (!ledgerRows.length) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !ledgerRows.some((row) => row.id === selectedId)) {
+      setSelectedId(ledgerRows[0].id);
+    }
+  }, [ledgerRows, selectedId]);
+
   if (initialLoad && !metrics) {
     return <DashboardSkeleton />;
   }
 
   if (error && !metrics) {
     return (
-      <div className="spend-dashboard">
-        <DashboardPanel>
+      <div className="activity-page">
+        <div style={{ padding: "var(--spacing-32)" }}>
           <p className="form-error">{error}</p>
-        </DashboardPanel>
+        </div>
       </div>
     );
   }
 
   if (!metrics) return null;
 
+  const hasActiveFilters = Boolean(filters.project || filters.environment || filters.vendor);
+
   return (
     <div
-      className={`spend-dashboard${refreshing ? " spend-dashboard--refreshing" : ""}`}
+      className={`activity-page${refreshing ? " spend-dashboard--refreshing" : ""}`}
       aria-busy={refreshing}
     >
       {refreshing ? (
@@ -428,14 +500,33 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
         </div>
       ) : null}
 
-      <DashboardPanel variant="hero" className="dashboard-hero">
-        <div className="dashboard-hero__bar">
-          <div className="dashboard-hero__identity">
-            <h1 className="dashboard-hero__title">{workspaceName}</h1>
-            <p className="dashboard-hero__meta">
-              {org.workspace.type} · {org.role}
+      <header className="activity-page__header">
+        <div>
+          <h1 className="activity-page__title">Activity</h1>
+          <p className="activity-page__summary">
+            <strong className="tabular-nums">{formatUsd(metrics.total_usd)}</strong>
+            {" · "}
+            {metrics.period_label}
+            {" · "}
+            {workspaceName}
+          </p>
+          {comparison && period !== "all" ? (
+            <p
+              className={`activity-page__delta tabular-nums${
+                comparison.delta_percent != null && comparison.delta_percent > 0
+                  ? " activity-page__delta--up"
+                  : comparison.delta_percent != null && comparison.delta_percent < 0
+                    ? " activity-page__delta--down"
+                    : ""
+              }`}
+            >
+              {formatDeltaPercent(comparison.delta_percent)} vs{" "}
+              {comparison.previous.period_label.toLowerCase()}
             </p>
-          </div>
+          ) : null}
+        </div>
+
+        <div className="activity-page__toolbar">
           <div className="period-pills" role="tablist" aria-label="Time period">
             {PERIODS.map((p) => (
               <button
@@ -451,121 +542,107 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
               </button>
             ))}
           </div>
-        </div>
 
-        <div className="dashboard-hero__body">
-          <div className="dashboard-hero__primary">
-            <p className="meta-label">{metrics.period_label}</p>
-            <p className="dashboard-hero__amount tabular-nums" aria-live="polite">
-              {formatUsd(metrics.total_usd)}
-            </p>
-            {comparison && period !== "all" ? (
-              <p
-                className={`dashboard-hero__delta tabular-nums${
-                  comparison.delta_percent != null && comparison.delta_percent > 0
-                    ? " dashboard-hero__delta--up"
-                    : comparison.delta_percent != null && comparison.delta_percent < 0
-                      ? " dashboard-hero__delta--down"
-                      : ""
-                }`}
-              >
-                {formatDeltaPercent(comparison.delta_percent)} vs{" "}
-                {comparison.previous.period_label.toLowerCase()}
-                {comparison.delta_usd !== 0
-                  ? ` (${comparison.delta_usd > 0 ? "+" : ""}${formatUsd(comparison.delta_usd)})`
-                  : ""}
-              </p>
-            ) : null}
-            {comparison?.insight ? (
-              <p className="dashboard-hero__insight">{comparison.insight}</p>
-            ) : null}
+          <div className="activity-page__toolbar-actions">
+            <button
+              type="button"
+              className={`activity-page__icon-btn${showFilters || hasActiveFilters ? " activity-page__icon-btn--active" : ""}`}
+              onClick={() => setShowFilters((open) => !open)}
+              aria-label="Filters"
+              aria-expanded={showFilters}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path
+                  d="M8 14a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                />
+                <path
+                  d="m13 13 2.5 2.5"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={refreshing || exporting}
+              onClick={() => void exportCsv()}
+            >
+              {exporting ? "Exporting…" : "Export"}
+            </Button>
+            <Button
+              type="button"
+              variant={composer === "expense" ? "ghost" : "default"}
+              onClick={() => {
+                setEditingId(null);
+                setComposer((c) => (c === "expense" ? null : "expense"));
+              }}
+            >
+              {composer === "expense" ? "Close" : "+ Expense"}
+            </Button>
+            <Button
+              type="button"
+              variant={composer === "subscription" ? "ghost" : "default"}
+              onClick={() => {
+                setEditingId(null);
+                setComposer((c) => (c === "subscription" ? null : "subscription"));
+              }}
+            >
+              {composer === "subscription" ? "Close" : "+ Subscription"}
+            </Button>
           </div>
-          <dl className="dashboard-hero__stats">
-            <div className="dashboard-hero__stat">
-              <dt>Transactions</dt>
-              <dd className="tabular-nums">{metrics.message_count}</dd>
-            </div>
-            <div className="dashboard-hero__stat">
-              <dt>Budget left</dt>
-              <dd className="tabular-nums">
-                {metrics.budget
-                  ? metrics.budget.percent_used >= 1
-                    ? formatUsd(metrics.budget.spent - metrics.budget.limit)
-                    : formatUsd(metrics.budget.remaining)
-                  : "—"}
-              </dd>
-            </div>
-            <div className="dashboard-hero__stat">
-              <dt>Top project</dt>
-              <dd>{metrics.top_project?.name ?? "—"}</dd>
-            </div>
-          </dl>
         </div>
+      </header>
 
-        <SpendFiltersBar
-          org={org}
-          filters={filters}
-          onChange={applyFilters}
-          onExport={() => void exportCsv()}
-          exporting={exporting}
-          disabled={refreshing}
-        />
-      </DashboardPanel>
+      {showFilters ? (
+        <div className="activity-page__filters">
+          <SpendFiltersBar
+            org={org}
+            filters={filters}
+            onChange={applyFilters}
+            disabled={refreshing}
+          />
+        </div>
+      ) : null}
 
-      <div className="dashboard-layout">
-        <div className="dashboard-layout__main">
-          <DashboardPanel title="Spend over time" className="dashboard-panel--live">
-            <SpendChart metrics={metrics} />
-          </DashboardPanel>
+      <details className="activity-page__chart">
+        <summary>Spend over time</summary>
+        <div className="activity-page__chart-body">
+          <SpendChart metrics={metrics} />
+        </div>
+      </details>
 
-          <DashboardPanel className="dashboard-panel--live">
-            <header className="activity-header">
-              <h2 className="dashboard-panel__title">Recent activity</h2>
-              <div className="activity-header__actions">
-                <Button
-                  type="button"
-                  variant={composer === "expense" ? "ghost" : "ink"}
-                  onClick={() => {
-                    setEditingId(null);
-                    setComposer((c) => (c === "expense" ? null : "expense"));
-                  }}
-                >
-                  {composer === "expense" ? "Close" : "+ Expense"}
-                </Button>
-                <Button
-                  type="button"
-                  variant={composer === "subscription" ? "ghost" : "default"}
-                  onClick={() => {
-                    setEditingId(null);
-                    setComposer((c) => (c === "subscription" ? null : "subscription"));
-                  }}
-                >
-                  {composer === "subscription" ? "Close" : "+ Subscription"}
-                </Button>
-              </div>
-            </header>
+      <div className="activity-page__split">
+        <div className="activity-page__list">
+          {error ? <p className="form-error">{error}</p> : null}
 
-            {error ? <p className="form-error">{error}</p> : null}
-
-            {composer === "expense" ? (
+          {composer === "expense" ? (
+            <div className="activity-page__composer">
               <AddExpenseForm
                 workspaceSlug={workspaceSlug}
                 org={org}
                 onSuccess={reloadDashboard}
                 onCancel={() => setComposer(null)}
               />
-            ) : null}
+            </div>
+          ) : null}
 
-            {composer === "subscription" ? (
+          {composer === "subscription" ? (
+            <div className="activity-page__composer">
               <AddSubscriptionForm
                 workspaceSlug={workspaceSlug}
                 org={org}
                 onSuccess={reloadDashboard}
                 onCancel={() => setComposer(null)}
               />
-            ) : null}
+            </div>
+          ) : null}
 
-            {editingRow?.message_type === "expense" ? (
+          {editingRow?.message_type === "expense" ? (
+            <div className="activity-page__composer">
               <AddExpenseForm
                 workspaceSlug={workspaceSlug}
                 org={org}
@@ -588,9 +665,11 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
                 onSuccess={reloadDashboard}
                 onCancel={() => setEditingId(null)}
               />
-            ) : null}
+            </div>
+          ) : null}
 
-            {editingRow?.message_type === "subscription" ? (
+          {editingRow?.message_type === "subscription" ? (
+            <div className="activity-page__composer">
               <AddSubscriptionForm
                 workspaceSlug={workspaceSlug}
                 org={org}
@@ -617,24 +696,29 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
                 onSuccess={reloadDashboard}
                 onCancel={() => setEditingId(null)}
               />
-            ) : null}
+            </div>
+          ) : null}
 
-            <LedgerTable
-              rows={ledgerRows}
-              editingId={editingId}
-              deletingId={deletingId}
-              onEdit={(id) => {
-                setComposer(null);
-                setEditingId((current) => (current === id ? null : id));
-              }}
-              onDelete={(id) => void deleteRow(id)}
-            />
-          </DashboardPanel>
-
-          <WorkspaceStructure org={org} />
+          <ActivityFeed
+            rows={ledgerRows}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
         </div>
 
-        <WorkspaceSidebar org={org} metrics={metrics} />
+        <aside className="activity-page__detail">
+          <TransactionDetail
+            row={selectedRow}
+            editingId={editingId}
+            deletingId={deletingId}
+            onEdit={(id) => {
+              setComposer(null);
+              setEditingId((current) => (current === id ? null : id));
+            }}
+            onDelete={(id) => void deleteRow(id)}
+          />
+          {!selectedRow ? <ActivitySummary metrics={metrics} /> : null}
+        </aside>
       </div>
     </div>
   );

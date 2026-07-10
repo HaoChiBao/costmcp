@@ -1,40 +1,39 @@
-import { DashboardPanel } from "@/components/ui/panel";
 import { Spinner } from "@/components/ui/spinner";
 
 export function DashboardSkeleton() {
   return (
-    <div className="spend-dashboard spend-dashboard--skeleton" aria-busy="true" aria-live="polite">
-      <DashboardPanel variant="hero" className="dashboard-hero skeleton-panel">
-        <div className="skeleton-block skeleton-block--title" />
-        <div className="skeleton-block skeleton-block--amount" />
-        <div className="skeleton-row">
-          <div className="skeleton-block skeleton-block--stat" />
+    <div className="activity-page spend-dashboard--skeleton" aria-busy="true" aria-live="polite">
+      <header className="activity-page__header">
+        <div>
+          <div className="skeleton-block skeleton-block--title" style={{ width: "6rem", height: "1.5rem" }} />
+          <div className="skeleton-block skeleton-block--line" style={{ width: "14rem", marginTop: "var(--spacing-8)" }} />
+        </div>
+        <div className="skeleton-row" style={{ width: "16rem" }}>
           <div className="skeleton-block skeleton-block--stat" />
           <div className="skeleton-block skeleton-block--stat" />
         </div>
-      </DashboardPanel>
+      </header>
 
-      <div className="dashboard-layout">
-        <div className="dashboard-layout__main">
-          <DashboardPanel title="Spend over time" className="skeleton-panel">
-            <div className="skeleton-block skeleton-block--chart" />
-          </DashboardPanel>
-          <DashboardPanel title="Recent activity" className="skeleton-panel">
-            <div className="skeleton-stack">
-              <div className="skeleton-block skeleton-block--line" />
-              <div className="skeleton-block skeleton-block--line" />
-              <div className="skeleton-block skeleton-block--line" />
-            </div>
-          </DashboardPanel>
-        </div>
-        <aside className="dashboard-sidebar">
-          <DashboardPanel title="Budget" className="skeleton-panel">
+      <div className="activity-page__split">
+        <div className="activity-page__list">
+          <div className="skeleton-stack">
             <div className="skeleton-block skeleton-block--line" />
-          </DashboardPanel>
+            <div className="skeleton-block skeleton-block--line" />
+            <div className="skeleton-block skeleton-block--line" />
+            <div className="skeleton-block skeleton-block--line" />
+            <div className="skeleton-block skeleton-block--line" />
+          </div>
+        </div>
+        <aside className="activity-page__detail">
+          <div className="skeleton-block skeleton-block--amount" style={{ width: "70%", height: "2rem" }} />
+          <div className="skeleton-stack" style={{ marginTop: "var(--spacing-24)" }}>
+            <div className="skeleton-block skeleton-block--line" />
+            <div className="skeleton-block skeleton-block--line" />
+          </div>
         </aside>
       </div>
 
-      <p className="dashboard-loading-status">
+      <p className="dashboard-loading-status" style={{ padding: "var(--spacing-16)" }}>
         <Spinner size={16} />
         <span>Loading spend…</span>
       </p>

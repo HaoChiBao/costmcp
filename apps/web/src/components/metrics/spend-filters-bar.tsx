@@ -9,7 +9,7 @@ type Props = {
   org: OrgTree;
   filters: SpendFilters;
   onChange: (filters: SpendFilters) => void;
-  onExport: () => void;
+  onExport?: () => void;
   exporting?: boolean;
   disabled?: boolean;
 };
@@ -85,9 +85,16 @@ export function SpendFiltersBar({
             Clear filters
           </Button>
         ) : null}
-        <Button type="button" variant="default" disabled={disabled || exporting} onClick={onExport}>
-          {exporting ? "Exporting…" : "Export CSV"}
-        </Button>
+        {onExport ? (
+          <Button
+            type="button"
+            variant="default"
+            disabled={disabled || exporting}
+            onClick={onExport}
+          >
+            {exporting ? "Exporting…" : "Export CSV"}
+          </Button>
+        ) : null}
       </div>
     </div>
   );

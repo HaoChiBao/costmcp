@@ -11,9 +11,11 @@ type Workspace = {
 
 export function DashboardLayoutShell({
   workspaces,
+  user,
   children,
 }: {
   workspaces: Workspace[];
+  user?: { name: string; email?: string };
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -21,8 +23,28 @@ export function DashboardLayoutShell({
   const segment = slugMatch?.[1];
   const currentSlug = segment && segment !== "new" ? segment : undefined;
 
+  const navItems = currentSlug
+    ? [
+        {
+          href: `/dashboard/${currentSlug}`,
+          label: "Activity",
+          active: pathname === `/dashboard/${currentSlug}`,
+        },
+        {
+          href: `/dashboard/${currentSlug}/connections`,
+          label: "Connections",
+          active: pathname.startsWith(`/dashboard/${currentSlug}/connections`),
+        },
+      ]
+    : undefined;
+
   return (
-    <DashboardShell workspaces={workspaces} currentSlug={currentSlug}>
+    <DashboardShell
+      workspaces={workspaces}
+      currentSlug={currentSlug}
+      user={user}
+      navItems={navItems}
+    >
       {children}
     </DashboardShell>
   );

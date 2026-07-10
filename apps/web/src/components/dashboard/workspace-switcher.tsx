@@ -16,23 +16,27 @@ export function WorkspaceSwitcher({
 
   return (
     <nav className="workspace-nav" aria-label="Cost accounts">
-      <div className="workspace-nav__scroll">
+      <p className="workspace-nav__label">Accounts</p>
+      <ul className="workspace-nav__list">
         {workspaces.map((ws) =>
           ws.slug ? (
-            <Link
-              key={ws.slug}
-              href={`/dashboard/${ws.slug}`}
-              prefetch
-              className={`workspace-link ${ws.slug === currentSlug ? "workspace-link--active" : ""}`}
-            >
-              {ws.name}
-            </Link>
+            <li key={ws.slug}>
+              <Link
+                href={`/dashboard/${ws.slug}`}
+                prefetch
+                className={`workspace-link ${ws.slug === currentSlug ? "workspace-link--active" : ""}`}
+              >
+                {ws.name}
+              </Link>
+            </li>
           ) : null,
         )}
-        <Link href="/dashboard/new" className="workspace-link workspace-link--new">
-          + New
-        </Link>
-      </div>
+        <li>
+          <Link href="/dashboard/new" className="workspace-link workspace-link--new">
+            New account
+          </Link>
+        </li>
+      </ul>
     </nav>
   );
 }

@@ -15,14 +15,25 @@ export default async function DashboardLayout({
   if (!session) redirect("/login");
 
   let workspaces: MeResponse["workspaces"] = [];
+  let user: { name: string; email?: string } | undefined;
+
   try {
     const me = await apiFetch<MeResponse>("/api/v1/me", session.access_token);
     workspaces = me.workspaces;
+    user = {
+      name: me.profile?.display_name ?? me.user.email?.split("@")[0] ?? "Account",
+      email: me.user.email,
+    };
   } catch {
     workspaces = [];
+    user = session.user.email
+      ? { name: session.user.email.split("@")[0], email: session.user.email }
+      : undefined;
   }
 
   return (
-    <DashboardLayoutShell workspaces={workspaces}>{children}</DashboardLayoutShell>
+    <DashboardLayoutShell workspaces={workspaces} user={user}>
+      {children}
+    </DashboardLayoutShell>
   );
 }
