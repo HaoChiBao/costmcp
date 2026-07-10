@@ -49,7 +49,7 @@ export function SiteFooter() {
           src="/images/footer-reaching-hands.png"
           alt=""
           width={1024}
-          height={683}
+          height={267}
           className="site-footer__banner-image"
           sizes="100vw"
         />
