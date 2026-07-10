@@ -4,12 +4,8 @@ import { useMemo, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { CurrencyPicker } from "@/components/ui/currency-picker";
-import {
-  FormError,
-  FormField,
-  SelectField,
-  TextAreaField,
-} from "@/components/ui/form-field";
+import { FormError } from "@/components/ui/form-field";
+import { MenuSelect } from "@/components/ui/menu-select";
 import type { OrgTree } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
@@ -33,9 +29,8 @@ function toDatetimeLocalValue(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function toDateValue(date: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+function toDateInputValue(value: string) {
+  return value.slice(0, 10);
 }
 
 export type SubscriptionFormValues = {
@@ -74,7 +69,8 @@ export function AddSubscriptionForm({
     const fromCollections = org.collections.flatMap((c) =>
       c.projects.map((p) => ({
         value: p.slug,
-        label: `${p.name} (${c.name})`,
+        label: p.name,
+        hint: c.name,
       })),
     );
     const ungrouped = org.ungrouped_projects.map((p) => ({
@@ -85,13 +81,16 @@ export function AddSubscriptionForm({
   }, [org]);
 
   const categoryOptions = useMemo(() => {
-    const options = [{ value: "", label: "No category" }];
+    const options: Array<{ value: string; label: string; hint?: string }> = [
+      { value: "", label: "No category" },
+    ];
     for (const parent of org.categories) {
       options.push({ value: parent.slug, label: parent.name });
       for (const child of parent.children) {
         options.push({
           value: child.slug,
-          label: `${parent.name} / ${child.name}`,
+          label: child.name,
+          hint: parent.name,
         });
       }
     }
@@ -112,7 +111,10 @@ export function AddSubscriptionForm({
     () => initial?.occurredAt ?? toDatetimeLocalValue(new Date()),
   );
   const [renewalDate, setRenewalDate] = useState(
-    () => initial?.renewalDate ?? toDateValue(new Date()),
+    () => initial?.renewalDate ?? toDateInputValue(toDatetimeLocalValue(new Date())),
+  );
+  const [showMore, setShowMore] = useState(
+    Boolean(initial?.notes || initial?.category || initial?.status !== "active"),
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,15 +125,15 @@ export function AddSubscriptionForm({
 
     const parsedAmount = Number(amount);
     if (!project) {
-      setError("Select a project.");
+      setError("Pick a project.");
       return;
     }
     if (!vendor.trim()) {
-      setError("Vendor is required.");
+      setError("Add a vendor.");
       return;
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount === 0) {
-      setError("Enter a non-zero amount.");
+      setError("Enter an amount.");
       return;
     }
 
@@ -142,7 +144,7 @@ export function AddSubscriptionForm({
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        setError("Your session expired. Please sign in again.");
+        setError("Session expired.");
         return;
       }
 
@@ -177,13 +179,13 @@ export function AddSubscriptionForm({
 
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        setError(body?.error ?? "Could not save subscription.");
+        setError(body?.error ?? "Could not save.");
         return;
       }
 
       onSuccess();
     } catch {
-      setError("Could not save subscription. Is the API running?");
+      setError("Could not save. Is the API running?");
     } finally {
       setSubmitting(false);
     }
@@ -191,10 +193,8 @@ export function AddSubscriptionForm({
 
   if (!projectOptions.length) {
     return (
-      <div className="add-expense">
-        <p className="form-error">
-          Create a project in this workspace before logging subscriptions.
-        </p>
+      <div className="quick-entry">
+        <p className="form-error">Create a project before logging subscriptions.</p>
         <Button type="button" variant="ghost" onClick={onCancel}>
           Close
         </Button>
@@ -203,90 +203,124 @@ export function AddSubscriptionForm({
   }
 
   return (
-    <form className="add-expense" onSubmit={handleSubmit}>
-      <div className="add-expense__grid">
-        <FormField
-          label="Amount"
-          type="number"
-          step="0.01"
-          required
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="20.00"
-        />
-        <SelectField
-          label="Interval"
-          value={interval}
-          onChange={(e) => setInterval(e.target.value)}
-          options={INTERVALS}
-        />
-        <FormField
-          label="Vendor"
+    <form className="quick-entry" onSubmit={handleSubmit}>
+      <div className="quick-entry__row">
+        <label className="quick-entry__amount">
+          <span className="quick-entry__prefix">$</span>
+          <input
+            type="number"
+            step="0.01"
+            required
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            aria-label="Amount"
+          />
+        </label>
+
+        <CurrencyPicker value={currency} onChange={setCurrency} />
+
+        <input
+          className="quick-entry__vendor"
           required
           value={vendor}
           onChange={(e) => setVendor(e.target.value)}
-          placeholder="Cursor"
+          placeholder="Vendor"
           list="subscription-vendor-suggestions"
+          aria-label="Vendor"
         />
         <datalist id="subscription-vendor-suggestions">
           {org.vendors.map((v) => (
             <option key={v.id} value={v.name} />
           ))}
         </datalist>
-        <SelectField
-          label="Project"
-          required
+
+        <MenuSelect
+          compact
+          ariaLabel="Project"
           value={project}
-          onChange={(e) => setProject(e.target.value)}
+          onChange={setProject}
           options={projectOptions}
+          placeholder="Project"
+          className="quick-entry__project"
         />
-        <FormField
-          label="Charged at"
-          type="datetime-local"
-          required
-          value={occurredAt}
-          onChange={(e) => setOccurredAt(e.target.value)}
+
+        <MenuSelect
+          compact
+          ariaLabel="Interval"
+          value={interval}
+          onChange={setInterval}
+          options={INTERVALS}
         />
-        <FormField
-          label="Renewal date"
-          type="date"
-          value={renewalDate}
-          onChange={(e) => setRenewalDate(e.target.value)}
-        />
-        <SelectField
-          label="Status"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          options={STATUSES}
-        />
-        <SelectField
-          label="Category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          options={categoryOptions}
-        />
+
+        <div className="quick-entry__actions">
+          <button
+            type="button"
+            className={`quick-entry__more${showMore ? " quick-entry__more--open" : ""}`}
+            onClick={() => setShowMore((open) => !open)}
+            aria-expanded={showMore}
+          >
+            More
+          </button>
+          <Button type="submit" variant="ink" disabled={submitting}>
+            {submitting ? "…" : mode === "edit" ? "Save" : "Add"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
+            ✕
+          </Button>
+        </div>
       </div>
-      <CurrencyPicker value={currency} onChange={setCurrency} />
-      <TextAreaField
-        label="Notes"
-        rows={2}
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Optional context"
-      />
+
+      {showMore ? (
+        <div className="quick-entry__row quick-entry__row--secondary">
+          <label className="quick-entry__date">
+            <span className="sr-only">Charged at</span>
+            <input
+              type="date"
+              required
+              value={toDateInputValue(occurredAt)}
+              onChange={(e) => {
+                const time = occurredAt.includes("T")
+                  ? occurredAt.split("T")[1] ?? "12:00"
+                  : "12:00";
+                setOccurredAt(`${e.target.value}T${time}`);
+              }}
+            />
+          </label>
+          <label className="quick-entry__date">
+            <span className="sr-only">Renewal date</span>
+            <input
+              type="date"
+              value={renewalDate}
+              onChange={(e) => setRenewalDate(e.target.value)}
+            />
+          </label>
+          <MenuSelect
+            compact
+            ariaLabel="Status"
+            value={status}
+            onChange={setStatus}
+            options={STATUSES}
+          />
+          <MenuSelect
+            compact
+            ariaLabel="Category"
+            value={category}
+            onChange={setCategory}
+            options={categoryOptions}
+            placeholder="Category"
+          />
+          <input
+            className="quick-entry__notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Note (optional)"
+            aria-label="Notes"
+          />
+        </div>
+      ) : null}
+
       {error ? <FormError message={error} /> : null}
-      <div className="add-expense__actions">
-        <Button type="submit" variant="ink" disabled={submitting}>
-          {submitting
-            ? "Saving…"
-            : mode === "edit"
-              ? "Save changes"
-              : "Save subscription"}
-        </Button>
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
-          Cancel
-        </Button>
-      </div>
     </form>
   );
 }

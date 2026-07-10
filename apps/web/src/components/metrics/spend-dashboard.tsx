@@ -418,7 +418,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
                     setComposer((c) => (c === "expense" ? null : "expense"));
                   }}
                 >
-                  {composer === "expense" ? "Close" : "Add expense"}
+                  {composer === "expense" ? "Close" : "+ Expense"}
                 </Button>
                 <Button
                   type="button"
@@ -428,7 +428,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
                     setComposer((c) => (c === "subscription" ? null : "subscription"));
                   }}
                 >
-                  {composer === "subscription" ? "Close" : "Add subscription"}
+                  {composer === "subscription" ? "Close" : "+ Subscription"}
                 </Button>
               </div>
             </header>
