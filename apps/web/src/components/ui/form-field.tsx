@@ -35,6 +35,25 @@ export function SelectField({ label, id, options, className = "", ...props }: Se
   );
 }
 
+interface TextAreaFieldProps extends ComponentProps<"textarea"> {
+  label: string;
+}
+
+export function TextAreaField({
+  label,
+  id,
+  className = "",
+  ...props
+}: TextAreaFieldProps) {
+  const fieldId = id ?? label.toLowerCase().replace(/\s+/g, "-");
+  return (
+    <label className={`field ${className}`.trim()} htmlFor={fieldId}>
+      <span className="field__label">{label}</span>
+      <textarea id={fieldId} className="field__input field__textarea" {...props} />
+    </label>
+  );
+}
+
 export function FormError({ message }: { message: string }) {
   return <p className="form-error">{message}</p>;
 }

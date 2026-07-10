@@ -96,11 +96,22 @@ export type ActivityResponse = {
   activity: Array<{
     id: string;
     amount_usd: number;
+    amount_original?: number | null;
+    currency?: string;
     message_type: string;
     created_at: string;
+    occurred_at?: string;
     project_slug: string | null;
     project_name: string | null;
     label: string;
+    source?: string;
+    vendor?: string | null;
+    category?: string | null;
+    notes?: string | null;
+    expense_type?: string | null;
+    interval?: string | null;
+    status?: string | null;
+    metadata?: Record<string, unknown>;
   }>;
 };
 

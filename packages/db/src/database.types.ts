@@ -223,6 +223,7 @@ export type Database = {
           idempotency_key: string | null
           message_type: string
           metadata: Json
+          occurred_at: string
           parent_message_id: string | null
           project_id: string | null
           quantity: number | null
@@ -231,6 +232,7 @@ export type Database = {
           unit_cost: number | null
           unit_type: string | null
           vendor_id: string | null
+          voided_at: string | null
           workspace_id: string
         }
         Insert: {
@@ -247,6 +249,7 @@ export type Database = {
           idempotency_key?: string | null
           message_type: string
           metadata?: Json
+          occurred_at?: string
           parent_message_id?: string | null
           project_id?: string | null
           quantity?: number | null
@@ -255,9 +258,24 @@ export type Database = {
           unit_cost?: number | null
           unit_type?: string | null
           vendor_id?: string | null
+          voided_at?: string | null
           workspace_id: string
         }
         Update: Partial<Database["public"]["Tables"]["cost_messages"]["Insert"]>
+        Relationships: []
+      }
+      fx_rates: {
+        Row: {
+          currency: string
+          rate_to_usd: number
+          updated_at: string
+        }
+        Insert: {
+          currency: string
+          rate_to_usd: number
+          updated_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["fx_rates"]["Insert"]>
         Relationships: []
       }
       pricing_rules: {

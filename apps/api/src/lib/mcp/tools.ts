@@ -85,6 +85,10 @@ export const MCP_TOOLS: McpTool[] = [
         currency: { type: "string", default: "USD" },
         category: { type: "string" },
         notes: { type: "string" },
+        timestamp: {
+          type: "string",
+          description: "When the expense occurred (ISO 8601). Defaults to now.",
+        },
       },
       required: ["project", "vendor", "amount"],
     },
@@ -92,6 +96,7 @@ export const MCP_TOOLS: McpTool[] = [
       const envelope = parseCostMessage({
         project: str(args.project),
         source: "mcp",
+        timestamp: str(args.timestamp),
         message: {
           type: "expense",
           vendor: str(args.vendor),
@@ -105,6 +110,56 @@ export const MCP_TOOLS: McpTool[] = [
         return await persistCostMessage(ctx, envelope);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to add expense";
+        throw new McpToolError(message);
+      }
+    },
+  },
+  {
+    name: "add_subscription",
+    description: "Log a recurring subscription cost for a project in CostMCP.",
+    permission: "manage_subscriptions",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project: { type: "string" },
+        vendor: { type: "string" },
+        amount: { type: "number" },
+        currency: { type: "string", default: "USD" },
+        interval: {
+          type: "string",
+          description: "monthly, yearly, weekly, or quarterly",
+        },
+        category: { type: "string" },
+        notes: { type: "string" },
+        status: { type: "string" },
+        timestamp: {
+          type: "string",
+          description: "When the subscription charge occurred (ISO 8601).",
+        },
+      },
+      required: ["project", "vendor", "amount", "interval"],
+    },
+    handler: async (ctx, args) => {
+      const envelope = parseCostMessage({
+        project: str(args.project),
+        source: "mcp",
+        timestamp: str(args.timestamp),
+        message: {
+          type: "subscription",
+          vendor: str(args.vendor),
+          amount: num(args.amount),
+          currency: str(args.currency) ?? "USD",
+          interval: str(args.interval),
+          category: str(args.category),
+          notes: str(args.notes),
+          status: str(args.status),
+        },
+      });
+      try {
+        return await persistCostMessage(ctx, envelope);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to add subscription";
         throw new McpToolError(message);
       }
     },
@@ -132,16 +187,19 @@ export const MCP_TOOLS: McpTool[] = [
 
       let query = client
         .from("cost_messages")
-        .select("id, message_type, amount_usd, unit_type, quantity, feature, batch_id, created_at")
+        .select(
+          "id, message_type, amount_usd, unit_type, quantity, feature, batch_id, created_at, occurred_at",
+        )
         .eq("workspace_id", ctx.workspaceId)
         .eq("project_id", project.id)
-        .order("created_at", { ascending: false })
+        .is("voided_at", null)
+        .order("occurred_at", { ascending: false })
         .limit(200);
 
       const from = str(args.from);
       const to = str(args.to);
-      if (from) query = query.gte("created_at", from);
-      if (to) query = query.lte("created_at", to);
+      if (from) query = query.gte("occurred_at", from);
+      if (to) query = query.lte("occurred_at", to);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -175,7 +233,8 @@ export const MCP_TOOLS: McpTool[] = [
         .from("cost_messages")
         .select("amount_usd, project_id")
         .eq("workspace_id", ctx.workspaceId)
-        .gte("created_at", start.toISOString());
+        .is("voided_at", null)
+        .gte("occurred_at", start.toISOString());
 
       if (ctx.projectId) {
         spendQuery = spendQuery.eq("project_id", ctx.projectId);

@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
       .from("cost_messages")
       .select("amount_usd, project_id")
       .eq("workspace_id", auth.workspaceId)
-      .gte("created_at", start.toISOString());
+      .is("voided_at", null)
+      .gte("occurred_at", start.toISOString());
 
     if (auth.projectId) {
       spendQuery = spendQuery.eq("project_id", auth.projectId);

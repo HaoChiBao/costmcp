@@ -34,14 +34,32 @@ export async function GET(
       activity: rows.slice(0, limit).map((row) => ({
         id: row.id,
         amount_usd: row.amount_usd,
+        amount_original: row.amount_original,
+        currency: row.currency,
         message_type: row.message_type,
         created_at: row.created_at,
+        occurred_at: row.occurred_at,
         project_slug: row.project_slug,
         project_name: row.project_name,
         environment: row.environment,
         feature: row.feature,
         source: row.source,
+        cost_category_id: row.cost_category_id,
+        metadata: row.metadata,
         label: formatActivityLabel(row),
+        vendor:
+          typeof row.metadata.vendor === "string" ? row.metadata.vendor : null,
+        category:
+          typeof row.metadata.category === "string" ? row.metadata.category : null,
+        notes: typeof row.metadata.notes === "string" ? row.metadata.notes : null,
+        expense_type:
+          typeof row.metadata.expense_type === "string"
+            ? row.metadata.expense_type
+            : null,
+        interval:
+          typeof row.metadata.interval === "string" ? row.metadata.interval : null,
+        status:
+          typeof row.metadata.status === "string" ? row.metadata.status : null,
       })),
     });
   } catch {
@@ -56,7 +74,22 @@ function formatActivityLabel(row: {
   metadata: Record<string, unknown>;
 }) {
   const project = row.project_name ?? "Unassigned";
+  const vendor =
+    typeof row.metadata.vendor === "string" ? row.metadata.vendor : null;
+  const category =
+    typeof row.metadata.category === "string" ? row.metadata.category : null;
+  const notes = typeof row.metadata.notes === "string" ? row.metadata.notes : null;
+
+  if (row.message_type === "expense" || row.message_type === "subscription") {
+    const parts = [vendor ?? row.message_type];
+    if (category) parts.push(category);
+    else if (notes) parts.push(notes);
+    else parts.push(project);
+    return parts.join(" · ");
+  }
+
   const feature = row.feature ? ` · ${row.feature}` : "";
-  const provider = typeof row.metadata.provider === "string" ? ` · ${row.metadata.provider}` : "";
+  const provider =
+    typeof row.metadata.provider === "string" ? ` · ${row.metadata.provider}` : "";
   return `${row.message_type} · ${project}${feature}${provider}`;
 }

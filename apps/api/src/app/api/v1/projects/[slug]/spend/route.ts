@@ -33,14 +33,17 @@ export async function GET(
 
     let query = client
       .from("cost_messages")
-      .select("id, message_type, amount_usd, unit_type, quantity, feature, batch_id, created_at")
+      .select(
+        "id, message_type, amount_usd, unit_type, quantity, feature, batch_id, created_at, occurred_at",
+      )
       .eq("workspace_id", auth.workspaceId)
       .eq("project_id", project.id)
-      .order("created_at", { ascending: false })
+      .is("voided_at", null)
+      .order("occurred_at", { ascending: false })
       .limit(500);
 
-    if (from) query = query.gte("created_at", from);
-    if (to) query = query.lte("created_at", to);
+    if (from) query = query.gte("occurred_at", from);
+    if (to) query = query.lte("occurred_at", to);
 
     const { data, error } = await query;
     if (error) throw error;

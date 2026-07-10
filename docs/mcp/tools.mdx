@@ -35,6 +35,25 @@ Permission: `add_expenses`
 | `currency` | string | | `USD` |
 | `category` | string | | |
 | `notes` | string | | |
+| `timestamp` | ISO datetime | | now |
+
+Refunds: set `expense_type` to `refund` (or send a negative amount). Amounts in other currencies are converted to USD via `fx_rates`.
+
+## `add_subscription`
+
+Permission: `manage_subscriptions`
+
+| Param | Type | Required | Default |
+|-------|------|----------|---------|
+| `project` | string | ✓ | |
+| `vendor` | string | ✓ | |
+| `amount` | number (≠0) | ✓ | |
+| `interval` | string | ✓ | |
+| `currency` | string | | `USD` |
+| `category` | string | | |
+| `notes` | string | | |
+| `status` | string | | `active` |
+| `timestamp` | ISO datetime | | now |
 
 ## `get_project_spend`
 

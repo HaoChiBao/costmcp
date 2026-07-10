@@ -23,6 +23,12 @@ export function setMetricsCache(
   store.set(cacheKey(workspaceSlug, period), entry);
 }
 
+export function clearMetricsCache(workspaceSlug: string) {
+  for (const key of [...store.keys()]) {
+    if (key.startsWith(`${workspaceSlug}:`)) store.delete(key);
+  }
+}
+
 export function getLatestMetricsForWorkspace(workspaceSlug: string) {
   for (const [key, entry] of store.entries()) {
     if (key.startsWith(`${workspaceSlug}:`)) return entry;

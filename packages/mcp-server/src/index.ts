@@ -73,10 +73,15 @@ server.tool(
   {
     project: z.string(),
     vendor: z.string(),
-    amount: z.number().positive(),
+    amount: z.number().refine((n) => n !== 0, "Amount must be non-zero"),
     currency: z.string().default("USD"),
     category: z.string().optional(),
     notes: z.string().optional(),
+    timestamp: z
+      .string()
+      .datetime()
+      .optional()
+      .describe("When the expense occurred (ISO 8601). Defaults to now."),
   },
   async (args) => {
     const result = await apiFetch("/api/v1/messages", {
@@ -84,6 +89,7 @@ server.tool(
       body: JSON.stringify({
         project: args.project,
         source: "mcp",
+        timestamp: args.timestamp,
         message: {
           type: "expense",
           vendor: args.vendor,
@@ -91,6 +97,45 @@ server.tool(
           currency: args.currency,
           category: args.category,
           notes: args.notes,
+        },
+      }),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "add_subscription",
+  "Log a recurring subscription cost for a project",
+  {
+    project: z.string(),
+    vendor: z.string(),
+    amount: z.number().refine((n) => n !== 0, "Amount must be non-zero"),
+    currency: z.string().default("USD"),
+    interval: z.enum(["monthly", "yearly", "weekly", "quarterly"]),
+    category: z.string().optional(),
+    notes: z.string().optional(),
+    status: z.enum(["active", "trial", "paused", "cancelled"]).optional(),
+    timestamp: z.string().datetime().optional(),
+  },
+  async (args) => {
+    const result = await apiFetch("/api/v1/messages", {
+      method: "POST",
+      body: JSON.stringify({
+        project: args.project,
+        source: "mcp",
+        timestamp: args.timestamp,
+        message: {
+          type: "subscription",
+          vendor: args.vendor,
+          amount: args.amount,
+          currency: args.currency,
+          interval: args.interval,
+          category: args.category,
+          notes: args.notes,
+          status: args.status,
         },
       }),
     });

@@ -22,6 +22,21 @@ export const UnitTypeSchema = z.enum([
 ]);
 export type UnitType = z.infer<typeof UnitTypeSchema>;
 
+/** Non-zero amount; refunds may be entered positive and are signed at resolve time. */
+const MoneyAmountSchema = z
+  .number()
+  .refine((n) => Number.isFinite(n) && n !== 0, "Amount must be a non-zero number");
+
+export const ExpenseTypeSchema = z.enum([
+  "one_time_purchase",
+  "invoice",
+  "credit_purchase",
+  "refund",
+  "reimbursement",
+  "manual_adjustment",
+]);
+export type ExpenseType = z.infer<typeof ExpenseTypeSchema>;
+
 export const UsageMessageSchema = z.object({
   type: z.literal("usage"),
   provider: z.string().min(1),
@@ -40,19 +55,10 @@ export const UsageMessageSchema = z.object({
 export const ExpenseMessageSchema = z.object({
   type: z.literal("expense"),
   vendor: z.string().min(1),
-  amount: z.number().positive(),
+  amount: MoneyAmountSchema,
   currency: z.string().default("USD"),
   category: z.string().optional(),
-  expense_type: z
-    .enum([
-      "one_time_purchase",
-      "invoice",
-      "credit_purchase",
-      "refund",
-      "reimbursement",
-      "manual_adjustment",
-    ])
-    .default("one_time_purchase"),
+  expense_type: ExpenseTypeSchema.default("one_time_purchase"),
   notes: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
 });
@@ -60,7 +66,7 @@ export const ExpenseMessageSchema = z.object({
 export const SubscriptionMessageSchema = z.object({
   type: z.literal("subscription"),
   vendor: z.string().min(1),
-  amount: z.number().positive(),
+  amount: MoneyAmountSchema,
   currency: z.string().default("USD"),
   interval: z.enum(["monthly", "yearly", "weekly", "quarterly"]),
   renewal_date: z.string().datetime().optional(),
@@ -131,6 +137,59 @@ export const DEFAULT_INGEST_PERMISSIONS: ApiPermission[] = [
   "estimate_costs",
 ];
 
+/** Fallback USD-per-unit rates when DB rates are unavailable. */
+export const DEFAULT_FX_RATES: Record<string, number> = {
+  USD: 1,
+  EUR: 1.08,
+  GBP: 1.27,
+  CAD: 0.73,
+  AUD: 0.66,
+  JPY: 0.0067,
+  CHF: 1.12,
+  CNY: 0.14,
+  INR: 0.012,
+  KRW: 0.00073,
+  SGD: 0.74,
+  HKD: 0.13,
+  BRL: 0.18,
+  MXN: 0.055,
+  SEK: 0.095,
+  NOK: 0.093,
+  DKK: 0.145,
+  NZD: 0.6,
+  PLN: 0.25,
+  TRY: 0.029,
+};
+
+export type CurrencyOption = {
+  code: string;
+  flag: string;
+  label: string;
+};
+
+export const CURRENCY_OPTIONS: CurrencyOption[] = [
+  { code: "USD", flag: "🇺🇸", label: "US Dollar" },
+  { code: "EUR", flag: "🇪🇺", label: "Euro" },
+  { code: "GBP", flag: "🇬🇧", label: "British Pound" },
+  { code: "CAD", flag: "🇨🇦", label: "Canadian Dollar" },
+  { code: "AUD", flag: "🇦🇺", label: "Australian Dollar" },
+  { code: "JPY", flag: "🇯🇵", label: "Japanese Yen" },
+  { code: "CHF", flag: "🇨🇭", label: "Swiss Franc" },
+  { code: "CNY", flag: "🇨🇳", label: "Chinese Yuan" },
+  { code: "INR", flag: "🇮🇳", label: "Indian Rupee" },
+  { code: "KRW", flag: "🇰🇷", label: "Korean Won" },
+  { code: "SGD", flag: "🇸🇬", label: "Singapore Dollar" },
+  { code: "HKD", flag: "🇭🇰", label: "Hong Kong Dollar" },
+  { code: "BRL", flag: "🇧🇷", label: "Brazilian Real" },
+  { code: "MXN", flag: "🇲🇽", label: "Mexican Peso" },
+  { code: "SEK", flag: "🇸🇪", label: "Swedish Krona" },
+  { code: "NOK", flag: "🇳🇴", label: "Norwegian Krone" },
+  { code: "DKK", flag: "🇩🇰", label: "Danish Krone" },
+  { code: "NZD", flag: "🇳🇿", label: "New Zealand Dollar" },
+  { code: "PLN", flag: "🇵🇱", label: "Polish Złoty" },
+  { code: "TRY", flag: "🇹🇷", label: "Turkish Lira" },
+];
+
 export function parseCostMessage(input: unknown): CostMessageEnvelope {
   return CostMessageEnvelopeSchema.parse(input);
 }
@@ -139,16 +198,80 @@ export function parseCostMessageBatch(input: unknown): CostMessageEnvelope[] {
   return CostMessageBatchSchema.parse(input);
 }
 
-export function resolveAmountUsd(message: CostMessagePayload): number {
+/** Convert an amount in `currency` to USD using rate_to_usd (USD per 1 unit). */
+export function convertToUsd(
+  amount: number,
+  currency: string | undefined,
+  rates: Record<string, number> = DEFAULT_FX_RATES,
+): number {
+  const code = (currency ?? "USD").toUpperCase();
+  if (code === "USD") return amount;
+  const rate = rates[code] ?? DEFAULT_FX_RATES[code];
+  if (rate == null) return amount;
+  return amount * rate;
+}
+
+/** Sign expense amounts: refunds are negative spend. */
+export function signedMoneyAmount(
+  amount: number,
+  expenseType?: ExpenseType | string,
+): number {
+  if (expenseType === "refund") return -Math.abs(amount);
+  return amount;
+}
+
+export function resolveAmountUsd(
+  message: CostMessagePayload,
+  rates: Record<string, number> = DEFAULT_FX_RATES,
+): number {
   switch (message.type) {
     case "usage":
       return message.estimated_cost ?? message.unit_cost ?? 0;
-    case "expense":
+    case "expense": {
+      const signed = signedMoneyAmount(message.amount, message.expense_type);
+      return convertToUsd(signed, message.currency, rates);
+    }
     case "subscription":
-      return message.amount;
+      return convertToUsd(message.amount, message.currency, rates);
     case "allocation":
-      return message.allocated_amount;
+      return convertToUsd(message.allocated_amount, message.currency, rates);
     case "batch":
       return message.total_actual_cost ?? message.total_estimated_cost ?? 0;
+  }
+}
+
+/** Flatten message-specific fields into the ledger metadata jsonb. */
+export function buildMessageMetadata(
+  message: CostMessagePayload,
+): Record<string, unknown> {
+  switch (message.type) {
+    case "usage":
+    case "batch":
+      return { ...(message.metadata ?? {}) };
+    case "expense":
+      return {
+        vendor: message.vendor,
+        expense_type: message.expense_type,
+        ...(message.category ? { category: message.category } : {}),
+        ...(message.notes ? { notes: message.notes } : {}),
+        ...(message.metadata ?? {}),
+      };
+    case "subscription":
+      return {
+        vendor: message.vendor,
+        interval: message.interval,
+        status: message.status,
+        ...(message.category ? { category: message.category } : {}),
+        ...(message.renewal_date ? { renewal_date: message.renewal_date } : {}),
+        ...(message.project_allocation
+          ? { project_allocation: message.project_allocation }
+          : {}),
+        ...(message.notes ? { notes: message.notes } : {}),
+        ...(message.metadata ?? {}),
+      };
+    case "allocation":
+      return {
+        ...(message.notes ? { notes: message.notes } : {}),
+      };
   }
 }

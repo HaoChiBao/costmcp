@@ -163,9 +163,97 @@ export async function insertCostMessage(
   const { data, error } = await client
     .from("cost_messages")
     .insert(input)
-    .select("id, amount_usd, project_id, created_at")
+    .select("id, amount_usd, project_id, created_at, occurred_at")
     .single();
 
+  if (error) throw error;
+  return data;
+}
+
+export async function updateCostMessage(
+  client: SupabaseClient<Database>,
+  id: string,
+  workspaceId: string,
+  patch: Database["public"]["Tables"]["cost_messages"]["Update"],
+) {
+  const { data, error } = await client
+    .from("cost_messages")
+    .update(patch)
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .is("voided_at", null)
+    .select("id, amount_usd, project_id, created_at, occurred_at, message_type, source")
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function voidCostMessage(
+  client: SupabaseClient<Database>,
+  id: string,
+  workspaceId: string,
+) {
+  return updateCostMessage(client, id, workspaceId, {
+    voided_at: new Date().toISOString(),
+  });
+}
+
+export async function getFxRates(client: SupabaseClient<Database>) {
+  const { data, error } = await client.from("fx_rates").select("currency, rate_to_usd");
+  if (error) throw error;
+  const rates: Record<string, number> = {};
+  for (const row of data ?? []) {
+    rates[String(row.currency).toUpperCase()] = Number(row.rate_to_usd);
+  }
+  return rates;
+}
+
+export async function findCategoryBySlugOrName(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  value: string,
+) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const slug = trimmed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  const { data: bySlug, error: slugError } = await client
+    .from("cost_categories")
+    .select("id, name, slug")
+    .eq("workspace_id", workspaceId)
+    .eq("slug", slug)
+    .maybeSingle();
+  if (slugError) throw slugError;
+  if (bySlug) return bySlug;
+
+  const { data: byName, error: nameError } = await client
+    .from("cost_categories")
+    .select("id, name, slug")
+    .eq("workspace_id", workspaceId)
+    .ilike("name", trimmed)
+    .maybeSingle();
+  if (nameError) throw nameError;
+  return byName;
+}
+
+export async function getCostMessageById(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  id: string,
+) {
+  const { data, error } = await client
+    .from("cost_messages")
+    .select(
+      "id, workspace_id, project_id, vendor_id, message_type, amount_usd, currency, amount_original, source, metadata, cost_category_id, created_at, occurred_at, voided_at, feature, environment",
+    )
+    .eq("workspace_id", workspaceId)
+    .eq("id", id)
+    .maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -209,6 +297,48 @@ export async function upsertProjectBySlug(
   return data;
 }
 
+function slugifyName(input: string): string {
+  const slug = input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "vendor";
+}
+
+export async function upsertVendorByName(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  name: string,
+  category?: string,
+) {
+  const slug = slugifyName(name);
+
+  const { data: existing, error: lookupError } = await client
+    .from("vendors")
+    .select("id, slug, name")
+    .eq("workspace_id", workspaceId)
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (lookupError) throw lookupError;
+  if (existing) return existing;
+
+  const { data, error } = await client
+    .from("vendors")
+    .insert({
+      workspace_id: workspaceId,
+      slug,
+      name,
+      category: category ?? null,
+    })
+    .select("id, slug, name")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function findMessageByIdempotencyKey(
   client: SupabaseClient<Database>,
   workspaceId: string,
@@ -234,7 +364,8 @@ export async function getMonthlySpend(client: SupabaseClient<Database>, workspac
     .from("cost_messages")
     .select("amount_usd, message_type, project_id")
     .eq("workspace_id", workspaceId)
-    .gte("created_at", start.toISOString());
+    .is("voided_at", null)
+    .gte("occurred_at", start.toISOString());
 
   if (error) throw error;
 
@@ -267,9 +398,14 @@ export type SpendFilters = {
 export type SpendMessageRow = {
   id: string;
   amount_usd: number;
+  amount_original: number | null;
+  currency: string;
   message_type: string;
   created_at: string;
+  occurred_at: string;
   project_id: string | null;
+  vendor_id: string | null;
+  cost_category_id: string | null;
   environment: string | null;
   feature: string | null;
   source: string;
@@ -292,12 +428,15 @@ export async function getWorkspaceSpendMessages(
 
   let query = client
     .from("cost_messages")
-    .select("id, amount_usd, message_type, created_at, project_id, environment, feature, source, metadata")
+    .select(
+      "id, amount_usd, amount_original, currency, message_type, created_at, occurred_at, project_id, vendor_id, cost_category_id, environment, feature, source, metadata",
+    )
     .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false });
+    .is("voided_at", null)
+    .order("occurred_at", { ascending: false });
 
   if (filters.since) {
-    query = query.gte("created_at", filters.since.toISOString());
+    query = query.gte("occurred_at", filters.since.toISOString());
   }
   if (projectId) {
     query = query.eq("project_id", projectId);
@@ -328,9 +467,15 @@ export async function getWorkspaceSpendMessages(
     return {
       id: row.id as string,
       amount_usd: Number(row.amount_usd ?? 0),
+      amount_original:
+        row.amount_original == null ? null : Number(row.amount_original),
+      currency: (row.currency as string) ?? "USD",
       message_type: row.message_type as string,
       created_at: row.created_at as string,
+      occurred_at: (row.occurred_at as string) ?? (row.created_at as string),
       project_id: row.project_id as string | null,
+      vendor_id: row.vendor_id as string | null,
+      cost_category_id: row.cost_category_id as string | null,
       environment: row.environment as string | null,
       feature: row.feature as string | null,
       source: row.source as string,
@@ -377,7 +522,7 @@ export type WorkspaceMetrics = {
 function aggregateDaily(rows: SpendMessageRow[]) {
   const byDay = new Map<string, number>();
   for (const row of rows) {
-    const day = row.created_at.slice(0, 10);
+    const day = row.occurred_at.slice(0, 10);
     byDay.set(day, (byDay.get(day) ?? 0) + row.amount_usd);
   }
   return [...byDay.entries()]
@@ -416,7 +561,7 @@ function aggregateDailyByType(rows: SpendMessageRow[]) {
   const byDay = new Map<string, { usage_usd: number; subscription_usd: number; expense_usd: number }>();
 
   for (const row of rows) {
-    const day = row.created_at.slice(0, 10);
+    const day = row.occurred_at.slice(0, 10);
     const current = byDay.get(day) ?? { usage_usd: 0, subscription_usd: 0, expense_usd: 0 };
     const bucket = expenseBucket(row.message_type);
     current[bucket] += row.amount_usd;
@@ -455,7 +600,7 @@ function aggregateDailyByProject(
   const byDay = new Map<string, Record<string, number>>();
 
   for (const row of rows) {
-    const day = row.created_at.slice(0, 10);
+    const day = row.occurred_at.slice(0, 10);
     const slug = row.project_slug ?? "unassigned";
     const key = trackedSlugs.has(slug) ? slug : topProjects.length > 0 ? "other" : slug;
     const current = byDay.get(day) ?? {};

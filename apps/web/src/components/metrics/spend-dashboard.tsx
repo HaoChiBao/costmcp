@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   type ActivityResponse,
@@ -11,15 +11,19 @@ import {
   normalizeWorkspaceMetrics,
 } from "@/lib/metrics";
 import {
+  clearMetricsCache,
   getLatestMetricsForWorkspace,
   getMetricsCache,
   setMetricsCache,
 } from "@/lib/metrics-cache";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { AddExpenseForm } from "@/components/metrics/add-expense-form";
+import { AddSubscriptionForm } from "@/components/metrics/add-subscription-form";
 import { LedgerTable } from "@/components/metrics/ledger-table";
 import { SpendChart } from "@/components/metrics/spend-chart";
 import { WorkspaceSidebar } from "@/components/dashboard/workspace-sidebar";
 import { WorkspaceStructure } from "@/components/dashboard/workspace-structure";
+import { Button } from "@/components/ui/button";
 import { DashboardPanel } from "@/components/ui/panel";
 import { Spinner } from "@/components/ui/spinner";
 import type { OrgTree } from "@/lib/api";
@@ -32,6 +36,19 @@ type Props = {
   org: OrgTree;
 };
 
+type Composer = "expense" | "subscription" | null;
+
+function resolveCategorySlug(org: OrgTree, value: string | null | undefined) {
+  if (!value) return "";
+  for (const parent of org.categories) {
+    if (parent.slug === value || parent.name === value) return parent.slug;
+    for (const child of parent.children) {
+      if (child.slug === value || child.name === value) return child.slug;
+    }
+  }
+  return value;
+}
+
 function formatActivityDate(iso: string) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -39,6 +56,18 @@ function formatActivityDate(iso: string) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(iso));
+}
+
+function toDatetimeLocalValue(iso: string) {
+  const date = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function toDateValue(iso: string) {
+  const date = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 function readCachedMetrics(workspaceSlug: string, period: Period) {
@@ -54,7 +83,8 @@ function readCachedMetrics(workspaceSlug: string, period: Period) {
   };
 }
 
-export function SpendDashboard({ workspaceSlug, workspaceName, org }: Props) {
+export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }: Props) {
+  const [org, setOrg] = useState(initialOrg);
   const [period, setPeriod] = useState<Period>("month");
   const [metrics, setMetrics] = useState<WorkspaceMetrics | null>(
     () => readCachedMetrics(workspaceSlug, "month")?.metrics ?? null,
@@ -65,6 +95,10 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org }: Props) {
   const [initialLoad, setInitialLoad] = useState(() => !readCachedMetrics(workspaceSlug, "month"));
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [composer, setComposer] = useState<Composer>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   function applyPeriod(next: Period) {
     if (next === period) return;
@@ -77,15 +111,44 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org }: Props) {
     setPeriod(next);
   }
 
+  const refreshOrg = useCallback(async () => {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    try {
+      const res = await fetch(`${API_URL}/api/v1/workspaces/${workspaceSlug}/org`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) return;
+      setOrg((await res.json()) as OrgTree);
+    } catch {
+      // Keep existing org tree on failure.
+    }
+  }, [workspaceSlug]);
+
+  const reloadDashboard = useCallback(() => {
+    clearMetricsCache(workspaceSlug);
+    setComposer(null);
+    setEditingId(null);
+    setReloadToken((token) => token + 1);
+    void refreshOrg();
+  }, [workspaceSlug, refreshOrg]);
+
+  useEffect(() => {
+    setOrg(initialOrg);
+  }, [initialOrg]);
+
   useEffect(() => {
     let cancelled = false;
-    const cached = readCachedMetrics(workspaceSlug, period);
+    const cached = reloadToken === 0 ? readCachedMetrics(workspaceSlug, period) : undefined;
 
     if (cached) {
       setMetrics(cached.metrics);
       setActivity(cached.activity);
       setInitialLoad(false);
-    } else {
+    } else if (reloadToken === 0) {
       const fallback = getLatestMetricsForWorkspace(workspaceSlug);
       if (fallback) {
         setMetrics(normalizeWorkspaceMetrics(fallback.metrics));
@@ -157,7 +220,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [workspaceSlug, period]);
+  }, [workspaceSlug, period, reloadToken]);
 
   useEffect(() => {
     if (initialLoad || refreshing) return;
@@ -207,17 +270,52 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org }: Props) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [workspaceSlug, period, initialLoad, refreshing]);
+  }, [workspaceSlug, period, initialLoad, refreshing, reloadToken]);
+
+  async function deleteRow(id: string) {
+    if (!window.confirm("Remove this entry from the ledger?")) return;
+    setDeletingId(id);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(
+        `${API_URL}/api/v1/workspaces/${workspaceSlug}/expenses/${id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        },
+      );
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "Could not delete entry.");
+        return;
+      }
+      reloadDashboard();
+    } catch {
+      setError("Could not delete entry.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const editingRow = activity?.activity.find((row) => row.id === editingId) ?? null;
 
   const ledgerRows =
     activity?.activity.map((row) => ({
       id: row.id,
-      date: formatActivityDate(row.created_at),
+      date: formatActivityDate(row.occurred_at ?? row.created_at),
       label: row.label,
       meta: row.project_name,
       projectSlug: row.project_slug,
       tag: row.message_type,
       amount_usd: row.amount_usd,
+      currency: row.currency,
+      amount_original: row.amount_original,
+      editable:
+        row.message_type === "expense" || row.message_type === "subscription",
     })) ?? [];
 
   if (initialLoad && !metrics) {
@@ -308,8 +406,117 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org }: Props) {
             <SpendChart metrics={metrics} />
           </DashboardPanel>
 
-          <DashboardPanel title="Recent activity" className="dashboard-panel--live">
-            <LedgerTable rows={ledgerRows} />
+          <DashboardPanel className="dashboard-panel--live">
+            <header className="activity-header">
+              <h2 className="dashboard-panel__title">Recent activity</h2>
+              <div className="activity-header__actions">
+                <Button
+                  type="button"
+                  variant={composer === "expense" ? "ghost" : "ink"}
+                  onClick={() => {
+                    setEditingId(null);
+                    setComposer((c) => (c === "expense" ? null : "expense"));
+                  }}
+                >
+                  {composer === "expense" ? "Close" : "Add expense"}
+                </Button>
+                <Button
+                  type="button"
+                  variant={composer === "subscription" ? "ghost" : "default"}
+                  onClick={() => {
+                    setEditingId(null);
+                    setComposer((c) => (c === "subscription" ? null : "subscription"));
+                  }}
+                >
+                  {composer === "subscription" ? "Close" : "Add subscription"}
+                </Button>
+              </div>
+            </header>
+
+            {error ? <p className="form-error">{error}</p> : null}
+
+            {composer === "expense" ? (
+              <AddExpenseForm
+                workspaceSlug={workspaceSlug}
+                org={org}
+                onSuccess={reloadDashboard}
+                onCancel={() => setComposer(null)}
+              />
+            ) : null}
+
+            {composer === "subscription" ? (
+              <AddSubscriptionForm
+                workspaceSlug={workspaceSlug}
+                org={org}
+                onSuccess={reloadDashboard}
+                onCancel={() => setComposer(null)}
+              />
+            ) : null}
+
+            {editingRow?.message_type === "expense" ? (
+              <AddExpenseForm
+                workspaceSlug={workspaceSlug}
+                org={org}
+                mode="edit"
+                expenseId={editingRow.id}
+                initial={{
+                  project: editingRow.project_slug ?? "",
+                  vendor: editingRow.vendor ?? "",
+                  amount: String(
+                    Math.abs(editingRow.amount_original ?? editingRow.amount_usd),
+                  ),
+                  currency: editingRow.currency ?? "USD",
+                  category: resolveCategorySlug(org, editingRow.category),
+                  expenseType: editingRow.expense_type ?? "one_time_purchase",
+                  notes: editingRow.notes ?? "",
+                  occurredAt: toDatetimeLocalValue(
+                    editingRow.occurred_at ?? editingRow.created_at,
+                  ),
+                }}
+                onSuccess={reloadDashboard}
+                onCancel={() => setEditingId(null)}
+              />
+            ) : null}
+
+            {editingRow?.message_type === "subscription" ? (
+              <AddSubscriptionForm
+                workspaceSlug={workspaceSlug}
+                org={org}
+                mode="edit"
+                subscriptionId={editingRow.id}
+                initial={{
+                  project: editingRow.project_slug ?? "",
+                  vendor: editingRow.vendor ?? "",
+                  amount: String(
+                    Math.abs(editingRow.amount_original ?? editingRow.amount_usd),
+                  ),
+                  currency: editingRow.currency ?? "USD",
+                  category: resolveCategorySlug(org, editingRow.category),
+                  interval: editingRow.interval ?? "monthly",
+                  status: editingRow.status ?? "active",
+                  notes: editingRow.notes ?? "",
+                  occurredAt: toDatetimeLocalValue(
+                    editingRow.occurred_at ?? editingRow.created_at,
+                  ),
+                  renewalDate: editingRow.metadata?.renewal_date
+                    ? toDateValue(String(editingRow.metadata.renewal_date))
+                    : "",
+                }}
+                onSuccess={reloadDashboard}
+                onCancel={() => setEditingId(null)}
+              />
+            ) : null}
+
+            <LedgerTable
+              rows={ledgerRows}
+              editingId={editingId}
+              deletingId={deletingId}
+              onEdit={(id) => {
+                setComposer(null);
+                setEditingId((current) => (current === id ? null : id));
+              }}
+              onDelete={(id) => void deleteRow(id)}
+            />
           </DashboardPanel>
 
           <WorkspaceStructure org={org} />

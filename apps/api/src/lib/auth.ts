@@ -1,11 +1,17 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import {
   createServiceClient,
+  findCategoryBySlugOrName,
   findMessageByIdempotencyKey,
+  getCostMessageById,
+  getFxRates,
   insertCostMessage,
   sumSpendForApiKey,
+  updateCostMessage,
   upsertProjectBySlug,
+  upsertVendorByName,
   utcMonthStartIso,
+  voidCostMessage,
   type Database,
 } from "@costmcp/db";
 import type { NextRequest } from "next/server";
@@ -200,13 +206,122 @@ export function filterSummaryByPolicy<T extends { projects?: { slug: string } | 
   return rows;
 }
 
+async function writeCostMessage(
+  workspaceId: string,
+  envelope: import("@costmcp/core").CostMessageEnvelope,
+  options?: { apiKeyId?: string | null },
+) {
+  const client = createServiceClient();
+  const { buildMessageMetadata, DEFAULT_FX_RATES, resolveAmountUsd } = await import(
+    "@costmcp/core"
+  );
+
+  if (envelope.idempotency_key) {
+    const existing = await findMessageByIdempotencyKey(
+      client,
+      workspaceId,
+      envelope.idempotency_key,
+    );
+    if (existing) return existing;
+  }
+
+  const project = await upsertProjectBySlug(client, workspaceId, envelope.project);
+  const msg = envelope.message;
+
+  let rates = DEFAULT_FX_RATES;
+  try {
+    const dbRates = await getFxRates(client);
+    if (Object.keys(dbRates).length) rates = { ...DEFAULT_FX_RATES, ...dbRates };
+  } catch {
+    // Fall back to bundled rates.
+  }
+
+  const amountUsd = resolveAmountUsd(msg, rates);
+  const currency =
+    "currency" in msg && msg.currency ? msg.currency.toUpperCase() : "USD";
+  const amountOriginal =
+    msg.type === "expense"
+      ? signedMoneyAmountLocal(msg.amount, msg.expense_type)
+      : "amount" in msg
+        ? msg.amount
+        : amountUsd;
+
+  let vendorId: string | null = null;
+  if (
+    (msg.type === "expense" || msg.type === "subscription") &&
+    typeof msg.vendor === "string" &&
+    msg.vendor.trim()
+  ) {
+    const vendor = await upsertVendorByName(
+      client,
+      workspaceId,
+      msg.vendor.trim(),
+      "category" in msg ? msg.category : undefined,
+    );
+    vendorId = String(vendor.id);
+  }
+
+  let costCategoryId: string | null = null;
+  let resolvedCategoryName: string | undefined;
+  if (
+    (msg.type === "expense" || msg.type === "subscription") &&
+    "category" in msg &&
+    typeof msg.category === "string" &&
+    msg.category.trim()
+  ) {
+    const category = await findCategoryBySlugOrName(
+      client,
+      workspaceId,
+      msg.category.trim(),
+    );
+    costCategoryId = category ? String(category.id) : null;
+    resolvedCategoryName = category
+      ? String(category.name)
+      : msg.category.trim();
+  }
+
+  const metadata = buildMessageMetadata(msg);
+  if (resolvedCategoryName) metadata.category = resolvedCategoryName;
+
+  return insertCostMessage(client, {
+    workspace_id: workspaceId,
+    project_id: project.id,
+    vendor_id: vendorId,
+    cost_category_id: costCategoryId,
+    api_key_id: options?.apiKeyId ?? null,
+    message_type: msg.type,
+    amount_usd: amountUsd,
+    currency,
+    amount_original: amountOriginal,
+    unit_type: msg.type === "usage" ? msg.unit_type : undefined,
+    quantity: msg.type === "usage" ? msg.quantity : undefined,
+    unit_cost: msg.type === "usage" ? msg.unit_cost : undefined,
+    feature: msg.type === "usage" || msg.type === "batch" ? msg.feature : undefined,
+    batch_id:
+      msg.type === "usage"
+        ? msg.batch_id
+        : msg.type === "batch"
+          ? msg.name
+          : undefined,
+    environment: msg.type === "usage" ? msg.environment : undefined,
+    source: envelope.source,
+    idempotency_key: envelope.idempotency_key,
+    parent_message_id:
+      msg.type === "allocation" ? msg.parent_message_id : undefined,
+    metadata: metadata as Database["public"]["Tables"]["cost_messages"]["Insert"]["metadata"],
+    occurred_at: envelope.timestamp ?? new Date().toISOString(),
+  });
+}
+
+function signedMoneyAmountLocal(amount: number, expenseType?: string) {
+  if (expenseType === "refund") return -Math.abs(amount);
+  return amount;
+}
+
 export async function persistCostMessage(
   ctx: ApiKeyContext,
   envelope: import("@costmcp/core").CostMessageEnvelope,
 ) {
-  const client = createServiceClient();
-  const { resolveAmountUsd } = await import("@costmcp/core");
-
   if (!sourceAllowed(ctx.policy, envelope.source)) {
     throw Object.assign(new Error(`Key cannot use source "${envelope.source}"`), {
       status: 403,
@@ -214,15 +329,7 @@ export async function persistCostMessage(
     });
   }
 
-  if (envelope.idempotency_key) {
-    const existing = await findMessageByIdempotencyKey(
-      client,
-      ctx.workspaceId,
-      envelope.idempotency_key,
-    );
-    if (existing) return existing;
-  }
-
+  const client = createServiceClient();
   const project = await upsertProjectBySlug(client, ctx.workspaceId, envelope.project);
   if (!projectAllowed(ctx.policy, project)) {
     throw Object.assign(new Error(`Key cannot access project "${project.slug}"`), {
@@ -240,6 +347,7 @@ export async function persistCostMessage(
     });
   }
 
+  const { resolveAmountUsd } = await import("@costmcp/core");
   const amountUsd = resolveAmountUsd(envelope.message);
   const limitDenied = await assertMonthlyLimit(ctx, amountUsd);
   if (limitDenied) {
@@ -251,34 +359,134 @@ export async function persistCostMessage(
     });
   }
 
-  const row = await insertCostMessage(client, {
-    workspace_id: ctx.workspaceId,
+  return writeCostMessage(ctx.workspaceId, envelope, { apiKeyId: ctx.apiKeyId ?? null });
+}
+
+/** Session-authenticated dashboard / member writes (no API key policy). */
+export async function persistWorkspaceCostMessage(
+  workspaceId: string,
+  envelope: import("@costmcp/core").CostMessageEnvelope,
+) {
+  return writeCostMessage(workspaceId, envelope);
+}
+
+export async function updateWorkspaceLedgerMessage(
+  workspaceId: string,
+  messageId: string,
+  envelope: import("@costmcp/core").CostMessageEnvelope,
+) {
+  const client = createServiceClient();
+  const existing = await getCostMessageById(client, workspaceId, messageId);
+  if (!existing || existing.voided_at) {
+    throw Object.assign(new Error("Record not found"), { status: 404 });
+  }
+  if (existing.message_type !== envelope.message.type) {
+    throw Object.assign(new Error("Cannot change message type"), { status: 400 });
+  }
+
+  const {
+    buildMessageMetadata,
+    DEFAULT_FX_RATES,
+    resolveAmountUsd,
+  } = await import("@costmcp/core");
+
+  let rates = DEFAULT_FX_RATES;
+  try {
+    const dbRates = await getFxRates(client);
+    if (Object.keys(dbRates).length) rates = { ...DEFAULT_FX_RATES, ...dbRates };
+  } catch {
+    // bundled rates
+  }
+
+  const msg = envelope.message;
+  const project = await upsertProjectBySlug(client, workspaceId, envelope.project);
+  const amountUsd = resolveAmountUsd(msg, rates);
+  const currency =
+    "currency" in msg && msg.currency ? msg.currency.toUpperCase() : "USD";
+  const amountOriginal =
+    msg.type === "expense"
+      ? signedMoneyAmountLocal(msg.amount, msg.expense_type)
+      : "amount" in msg
+        ? msg.amount
+        : amountUsd;
+
+  let vendorId: string | null = existing.vendor_id as string | null;
+  if (
+    (msg.type === "expense" || msg.type === "subscription") &&
+    typeof msg.vendor === "string" &&
+    msg.vendor.trim()
+  ) {
+    const vendor = await upsertVendorByName(
+      client,
+      workspaceId,
+      msg.vendor.trim(),
+      "category" in msg ? msg.category : undefined,
+    );
+    vendorId = String(vendor.id);
+  }
+
+  let costCategoryId: string | null = existing.cost_category_id as string | null;
+  let resolvedCategoryName: string | undefined;
+  if (
+    (msg.type === "expense" || msg.type === "subscription") &&
+    "category" in msg
+  ) {
+    if (typeof msg.category === "string" && msg.category.trim()) {
+      const category = await findCategoryBySlugOrName(
+        client,
+        workspaceId,
+        msg.category.trim(),
+      );
+      costCategoryId = category ? String(category.id) : null;
+      resolvedCategoryName = category
+        ? String(category.name)
+        : msg.category.trim();
+    } else {
+      costCategoryId = null;
+    }
+  }
+
+  const metadata = buildMessageMetadata(msg);
+  if (resolvedCategoryName) metadata.category = resolvedCategoryName;
+  else if (
+    (msg.type === "expense" || msg.type === "subscription") &&
+    "category" in msg &&
+    !msg.category
+  ) {
+    delete metadata.category;
+  }
+
+  const updated = await updateCostMessage(client, messageId, workspaceId, {
     project_id: project.id,
-    vendor_id: null,
-    api_key_id: ctx.apiKeyId ?? null,
-    message_type: msg.type,
+    vendor_id: vendorId,
+    cost_category_id: costCategoryId,
     amount_usd: amountUsd,
-    currency: "currency" in msg && msg.currency ? msg.currency : "USD",
-    amount_original: "amount" in msg ? msg.amount : amountUsd,
-    unit_type: msg.type === "usage" ? msg.unit_type : undefined,
-    quantity: msg.type === "usage" ? msg.quantity : undefined,
-    unit_cost: msg.type === "usage" ? msg.unit_cost : undefined,
-    feature: msg.type === "usage" || msg.type === "batch" ? msg.feature : undefined,
-    batch_id:
-      msg.type === "usage"
-        ? msg.batch_id
-        : msg.type === "batch"
-          ? msg.name
-          : undefined,
-    environment: msg.type === "usage" ? msg.environment : undefined,
-    source: envelope.source,
-    idempotency_key: envelope.idempotency_key,
-    parent_message_id:
-      msg.type === "allocation" ? msg.parent_message_id : undefined,
-    metadata: (msg.type === "usage" || msg.type === "batch" ? (msg.metadata ?? {}) : {}) as Database["public"]["Tables"]["cost_messages"]["Insert"]["metadata"],
+    currency,
+    amount_original: amountOriginal,
+    metadata: metadata as Database["public"]["Tables"]["cost_messages"]["Update"]["metadata"],
+    occurred_at: envelope.timestamp ?? (existing.occurred_at as string),
   });
 
-  return row;
+  if (!updated) {
+    throw Object.assign(new Error("Record not found"), { status: 404 });
+  }
+  return updated;
+}
+
+export async function voidWorkspaceLedgerMessage(
+  workspaceId: string,
+  messageId: string,
+) {
+  const client = createServiceClient();
+  const existing = await getCostMessageById(client, workspaceId, messageId);
+  if (!existing || existing.voided_at) {
+    throw Object.assign(new Error("Record not found"), { status: 404 });
+  }
+  const voided = await voidCostMessage(client, messageId, workspaceId);
+  if (!voided) {
+    throw Object.assign(new Error("Record not found"), { status: 404 });
+  }
+  return voided;
 }
 
 export type { KeyConditionsV1, ApiKeyPolicy };

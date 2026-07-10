@@ -19,7 +19,7 @@ Requires permission `log_usage`. Auto-upserts the project by slug. Idempotent wh
 </ParamField>
 
 <ParamField body="timestamp" type="string">
-  ISO datetime for the event
+  ISO datetime for when the cost occurred. Written to `occurred_at`. `created_at` stays as ingest time. Defaults to now.
 </ParamField>
 
 <ParamField body="message" type="object" required>

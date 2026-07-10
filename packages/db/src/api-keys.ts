@@ -10,7 +10,8 @@ export async function sumSpendForApiKey(
     .from("cost_messages")
     .select("amount_usd")
     .eq("api_key_id", apiKeyId)
-    .gte("created_at", sinceIso);
+    .is("voided_at", null)
+    .gte("occurred_at", sinceIso);
 
   if (error) throw error;
   return (data ?? []).reduce((sum, row) => sum + Number(row.amount_usd ?? 0), 0);
