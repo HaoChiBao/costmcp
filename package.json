@@ -8,8 +8,8 @@
     "typecheck": "turbo typecheck",
     "db:migrate": "npx supabase@latest db push",
     "db:types": "node scripts/generate-db-types.mjs",
-    "seed:test": "pnpm --filter @costmcp/db seed:test",
-    "mcp:dev": "pnpm --filter @costmcp/mcp-server dev"
+    "seed:test": "node --env-file=.env packages/db/scripts/seed-test-account.mjs",
+    "mcp:dev": "node --env-file=.env packages/mcp-server/node_modules/tsx/dist/cli.mjs watch packages/mcp-server/src/index.ts"
   },
   "devDependencies": {
     "turbo": "^2.5.4",
@@ -18,5 +18,11 @@
   "packageManager": "pnpm@10.12.1",
   "engines": {
     "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
   }
 }

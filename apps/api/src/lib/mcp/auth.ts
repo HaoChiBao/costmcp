@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { authenticateRequest, type ApiKeyContext } from "@/lib/auth";
-import { getBaseUrl } from "@/lib/oauth/config";
+import { getMcpMetadataBase } from "@/lib/oauth/config";
 import {
   connectionIsActive,
   findAccessToken,
@@ -64,7 +64,7 @@ export async function authenticateMcp(
 }
 
 export function unauthorized(request: NextRequest, description: string): Response {
-  const resourceMetadata = `${getBaseUrl(request)}/.well-known/oauth-protected-resource`;
+  const resourceMetadata = `${getMcpMetadataBase(request)}/.well-known/oauth-protected-resource`;
   return Response.json(
     { error: "invalid_token", error_description: description },
     {

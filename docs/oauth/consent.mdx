@@ -1,0 +1,49 @@
+---
+title: Consent
+api: POST /api/oauth/consent
+description: Dashboard user approves an MCP client for a workspace.
+---
+
+Requires Supabase user JWT. Called by the web consent screen after login.
+
+<ParamField body="client_id" type="string" required>
+  OAuth client ID
+</ParamField>
+
+<ParamField body="redirect_uri" type="string" required>
+  Must match authorize request
+</ParamField>
+
+<ParamField body="code_challenge" type="string" required>
+  PKCE challenge
+</ParamField>
+
+<ParamField body="workspace_id" type="string" required>
+  UUID of workspace to grant
+</ParamField>
+
+<ParamField body="code_challenge_method" type="string">
+  Default / expected `S256`
+</ParamField>
+
+<ParamField body="scope" type="string">
+  Filtered to known scopes; defaults to all four
+</ParamField>
+
+<ParamField body="state" type="string">
+  Echoed to client
+</ParamField>
+
+<ParamField body="resource" type="string">
+  Resource indicator
+</ParamField>
+
+**200:** `{ "redirect": "<redirect_uri>?code=...&state=..." }`
+
+Auth codes expire in **5 minutes**.
+
+| Status | Meaning |
+|--------|---------|
+| `400` | Validation |
+| `403` | Not a workspace member |
+| `500` | Server error |

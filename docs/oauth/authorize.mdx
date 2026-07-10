@@ -1,0 +1,42 @@
+---
+title: Authorize
+api: GET /api/oauth/authorize
+authMethod: none
+description: Start the PKCE authorization code flow.
+---
+
+Browser redirect. On success, redirects to `{NEXT_PUBLIC_WEB_URL}/oauth/consent?...`.
+
+<ParamField query="client_id" type="string" required>
+  From registration
+</ParamField>
+
+<ParamField query="redirect_uri" type="string" required>
+  Must match a registered URI
+</ParamField>
+
+<ParamField query="response_type" type="string" required>
+  Must be `code`
+</ParamField>
+
+<ParamField query="code_challenge" type="string" required>
+  PKCE challenge
+</ParamField>
+
+<ParamField query="code_challenge_method" type="string" required>
+  Must be `S256`
+</ParamField>
+
+<ParamField query="scope" type="string">
+  Space-separated scopes
+</ParamField>
+
+<ParamField query="state" type="string">
+  Opaque CSRF state
+</ParamField>
+
+<ParamField query="resource" type="string">
+  Resource indicator — use `https://mcp.costmcp.com`
+</ParamField>
+
+Errors: `400` HTML page, or `302` to client with `error` / `error_description` / `state`.

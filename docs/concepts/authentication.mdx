@@ -1,0 +1,80 @@
+---
+title: Authentication
+description: API keys, Supabase JWTs, and OAuth access tokens — which to use when.
+---
+
+CostMCP uses three auth mechanisms depending on the client.
+
+## API keys (`cmcp_live_...`)
+
+For pipelines, SDKs, and local MCP.
+
+```bash
+Authorization: Bearer cmcp_live_...
+```
+
+| Detail | Value |
+|--------|-------|
+| Format | `cmcp_live_{secret}` |
+| Storage | SHA-256 hash in `api_keys` (prefix stored separately) |
+| Create | Dashboard → workspace → API keys, or `POST /api/v1/workspaces/{slug}/api-keys` |
+| Dev fallback | Local/dev only via `COSTMCP_API_KEY` (disabled in production unless `COSTMCP_ALLOW_ENV_API_KEY=true`) |
+
+**Endpoints:** ingest, summaries, project spend, budgets, and the MCP host (`https://mcp.costmcp.com`).
+
+**Conditions** (enforced on every request): permissions, optional `project_id` / project allow-list, `monthly_limit`, `expires_at`, `rate_limit_rpm`, `allowed_cidrs`. Full guide: [API keys & conditions](/concepts/api-keys). API: [API keys reference](/api-reference/api-keys).
+
+Permissions are scoped per key. See [Permissions](/concepts/permissions).
+
+<Warning>
+The secret is shown **once** when created or rotated. Store it like a password.
+</Warning>
+
+Dev-only: `COSTMCP_API_KEY` env maps to the demo workspace when `NODE_ENV !== "production"` (or `COSTMCP_ALLOW_ENV_API_KEY=true`). Do not rely on this in production — create a dashboard key instead.
+
+## Supabase user JWT
+
+For dashboard and workspace management APIs.
+
+```bash
+Authorization: Bearer <supabase_access_token>
+```
+
+| Detail | Value |
+|--------|-------|
+| Source | Supabase Auth after login on `costmcp.com` |
+| Rejected | Tokens starting with `cmcp_` return `403` |
+
+**Endpoints:** `/api/v1/me`, `/api/v1/workspaces/*`, `/api/oauth/consent`.
+
+## OAuth access tokens (`cmcp_at_...`)
+
+For remote MCP clients (ChatGPT, Claude, etc.) after the OAuth 2.1 PKCE flow.
+
+```bash
+Authorization: Bearer cmcp_at_...
+```
+
+| Detail | Value |
+|--------|-------|
+| Access TTL | 1 hour |
+| Refresh | `cmcp_rt_...` (30 days) |
+| Resource | `https://mcp.costmcp.com` |
+
+See [OAuth overview](/oauth/overview).
+
+## CORS
+
+Allowed origins come from `CORS_ALLOWED_ORIGINS` (comma-separated) or `NEXT_PUBLIC_WEB_URL` (default `http://localhost:3001`).
+
+Allowed methods: `GET, POST, PUT, PATCH, DELETE, OPTIONS`  
+Allowed headers: `Authorization, Content-Type, X-Requested-With`
+
+## Error shapes
+
+| Status | Meaning |
+|--------|---------|
+| `401` | Missing/invalid Bearer token |
+| `403` | Valid token but missing permission / wrong auth type |
+| `404` | Resource not found or not a workspace member |
+| `500` | Server / validation / persist failure |

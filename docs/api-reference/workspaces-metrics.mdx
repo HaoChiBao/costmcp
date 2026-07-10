@@ -1,0 +1,53 @@
+---
+title: Workspace metrics
+api: GET /api/v1/workspaces/{slug}/metrics
+description: Spend dashboard metrics — totals, daily series, by project/type, budget.
+---
+
+Requires Supabase JWT + workspace membership. Powers the Robinhood-style spend panel.
+
+<ParamField path="slug" type="string" required>
+  Workspace slug
+</ParamField>
+
+<ParamField query="period" type="string">
+  `day` \| `week` \| `month` \| `quarter` \| `year` \| `all` (default `month`)
+</ParamField>
+
+<ParamField query="project" type="string">
+  Filter to one project slug
+</ParamField>
+
+<ParamField query="type" type="string">
+  Filter by message type (`usage`, `expense`, `subscription`, …)
+</ParamField>
+
+<ParamField query="environment" type="string">
+  Filter by environment label
+</ParamField>
+
+## Response fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `period` | string | Echo of query |
+| `period_label` | string | Human label |
+| `total_usd` | number | |
+| `usage_usd` | number | |
+| `expense_usd` | number | Non-usage, non-subscription |
+| `subscription_usd` | number | |
+| `message_count` | number | |
+| `daily` | array | `{ date, amount_usd }` |
+| `daily_by_type` | array | Gap-filled usage / subscription / expense / total |
+| `daily_by_project` | object | `{ series, daily }` — top 5 + other |
+| `by_project` | array | `{ slug, name, amount_usd, percent }` sorted desc |
+| `by_type` | object | Map of message_type → amount |
+| `budget` | object \| null | Global budget with `status`: `ok` \| `warning` \| `danger` |
+| `top_project` | object \| null | Highest spend project |
+
+<RequestExample>
+```bash
+curl "https://api.costmcp.com/api/v1/workspaces/acme-ai/metrics?period=month&type=usage" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+</RequestExample>

@@ -1,0 +1,50 @@
+---
+title: Token
+api: POST /api/oauth/token
+authMethod: none
+description: Exchange authorization code or refresh token.
+---
+
+Accepts `application/x-www-form-urlencoded` or `application/json`.
+
+## Authorization code grant
+
+| Field | Required |
+|-------|----------|
+| `grant_type=authorization_code` | ✓ |
+| `code` | ✓ |
+| `client_id` | ✓ |
+| `code_verifier` | ✓ |
+| `redirect_uri` | if used at authorize |
+| `client_secret` | confidential clients |
+
+## Refresh token grant
+
+| Field | Required |
+|-------|----------|
+| `grant_type=refresh_token` | ✓ |
+| `refresh_token` | ✓ |
+| `client_id` | ✓ |
+| `client_secret` | confidential clients |
+
+## Response
+
+```json
+{
+  "access_token": "cmcp_at_...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "refresh_token": "cmcp_rt_...",
+  "scope": "log_usage add_expenses read_summaries estimate_costs"
+}
+```
+
+Errors use OAuth JSON: `{ "error", "error_description" }`.
+
+<RequestExample>
+```bash
+curl -X POST https://api.costmcp.com/api/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=authorization_code&code=...&client_id=cmcp_client_...&code_verifier=..."
+```
+</RequestExample>

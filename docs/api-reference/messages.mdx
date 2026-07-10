@@ -1,0 +1,124 @@
+---
+title: Ingest CostMessage
+api: POST /api/v1/messages
+description: Universal ingest — single envelope or batch (max 100).
+---
+
+Requires permission `log_usage`. Auto-upserts the project by slug. Idempotent when `idempotency_key` is set.
+
+<ParamField body="project" type="string" required>
+  Project slug (auto-created if missing)
+</ParamField>
+
+<ParamField body="source" type="string">
+  `api` \| `mcp` \| `manual` \| `import` (default `api`)
+</ParamField>
+
+<ParamField body="idempotency_key" type="string">
+  Dedup key within the workspace
+</ParamField>
+
+<ParamField body="timestamp" type="string">
+  ISO datetime for the event
+</ParamField>
+
+<ParamField body="message" type="object" required>
+  Discriminated CostMessage — see [CostMessage](/concepts/cost-message)
+</ParamField>
+
+You may also send a **JSON array** of envelopes (1–100).
+
+## Responses
+
+**201 (single)**
+
+<ResponseField name="id" type="string" required>
+  Ledger row UUID
+</ResponseField>
+
+<ResponseField name="amount_usd" type="number" required>
+  Resolved USD amount
+</ResponseField>
+
+<ResponseField name="project_id" type="string" required>
+  Project UUID
+</ResponseField>
+
+<ResponseField name="created_at" type="string" required>
+  ISO timestamp
+</ResponseField>
+
+**201 (batch):** `{ "messages": [ ...same objects... ] }`
+
+| Status | Meaning |
+|--------|---------|
+| `400` | Invalid JSON |
+| `401` / `403` | Auth / permission |
+| `500` | Validation or persist failure |
+
+<RequestExample>
+```bash
+curl -X POST https://api.costmcp.com/api/v1/messages \
+  -H "Authorization: Bearer $COSTMCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project": "slideshow-studio",
+    "source": "api",
+    "idempotency_key": "run-abc-1",
+    "message": {
+      "type": "usage",
+      "provider": "openai",
+      "model": "gpt-image-2",
+      "unit_type": "image",
+      "quantity": 1,
+      "estimated_cost": 0.04,
+      "feature": "slide_generation"
+    }
+  }'
+```
+
+```bash Expense
+curl -X POST https://api.costmcp.com/api/v1/messages \
+  -H "Authorization: Bearer $COSTMCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project": "experiments",
+    "message": {
+      "type": "expense",
+      "vendor": "midjourney",
+      "amount": 30,
+      "category": "image_gen"
+    }
+  }'
+```
+
+```bash Batch
+curl -X POST https://api.costmcp.com/api/v1/messages \
+  -H "Authorization: Bearer $COSTMCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "project": "progressgoat",
+      "message": {
+        "type": "usage",
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "unit_type": "total_tokens",
+        "quantity": 12000,
+        "estimated_cost": 0.002
+      }
+    }
+  ]'
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "id": "61363057-54d3-4dae-9883-7df9f56cc979",
+  "amount_usd": 0.04,
+  "project_id": "1a161e43-c198-4376-82be-d0b1322c1f1f",
+  "created_at": "2026-07-09T21:48:21.437351+00:00"
+}
+```
+</ResponseExample>

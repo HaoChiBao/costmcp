@@ -1,0 +1,26 @@
+---
+title: Current user
+api: GET /api/v1/me
+description: Profile and workspaces for the signed-in dashboard user.
+---
+
+Requires a **Supabase user JWT** (not an API key).
+
+<ResponseField name="user" type="object" required>
+  `{ id, email }` from Auth
+</ResponseField>
+
+<ResponseField name="profile" type="object" required>
+  Profile row: `id`, `email`, `display_name`, `avatar_url`, `default_workspace_id`
+</ResponseField>
+
+<ResponseField name="workspaces" type="array" required>
+  Memberships with `id`, `name`, `slug`, `type`, `description`, `base_currency`, `role`
+</ResponseField>
+
+<RequestExample>
+```bash
+curl https://api.costmcp.com/api/v1/me \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+</RequestExample>

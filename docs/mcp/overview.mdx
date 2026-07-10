@@ -1,0 +1,41 @@
+---
+title: MCP overview
+description: Two ways to connect agents — local stdio and remote OAuth HTTP.
+---
+
+CostMCP exposes MCP tools so Cursor, Claude, ChatGPT, and other agents can log costs and query spend.
+
+## Transports
+
+| | Local stdio | Remote HTTP |
+|--|-------------|-------------|
+| **Package / path** | `packages/mcp-server` | `https://mcp.costmcp.com` |
+| **Auth** | `COSTMCP_API_KEY` | OAuth `cmcp_at_...` or API key |
+| **Tools** | 4 | 5 (+ `get_monthly_summary`) |
+| **Best for** | Cursor / Claude Desktop | Hosted agents needing OAuth |
+
+**Agent URL:** paste `https://mcp.costmcp.com` into ChatGPT / Claude / Cursor remote MCP configs.
+
+## Tool summary
+
+| Tool | Permission | Purpose |
+|------|------------|---------|
+| `log_usage` | `log_usage` | Record usage events |
+| `add_expense` | `add_expenses` | Log purchases / invoices |
+| `get_project_spend` | `read_summaries` | Project drill-down |
+| `get_budget_status` | `read_summaries` | Budget remaining |
+| `get_monthly_summary` | `read_summaries` | Monthly rollup (**remote only**) |
+
+## Safety defaults
+
+- ✅ Log usage, add expenses, read summaries, estimate (reserved)
+- ❌ Delete records, bulk export, change billing settings
+
+<CardGroup cols={2}>
+  <Card title="Local stdio" href="/mcp/local-stdio" icon="terminal">
+    Cursor / Claude Desktop config
+  </Card>
+  <Card title="Remote HTTP" href="/mcp/remote-http" icon="cloud">
+    OAuth-protected `https://mcp.costmcp.com`
+  </Card>
+</CardGroup>

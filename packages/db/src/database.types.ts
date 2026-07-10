@@ -14,8 +14,12 @@ export type Database = {
     Tables: {
       api_keys: {
         Row: {
+          allowed_cidrs: string[]
+          conditions: Json
           created_at: string
+          created_by: string | null
           environment: string
+          expires_at: string | null
           id: string
           key_hash: string
           key_prefix: string
@@ -24,12 +28,17 @@ export type Database = {
           name: string
           permissions: string[]
           project_id: string | null
+          rate_limit_rpm: number | null
           status: string
           workspace_id: string
         }
         Insert: {
+          allowed_cidrs?: string[]
+          conditions?: Json
           created_at?: string
+          created_by?: string | null
           environment?: string
+          expires_at?: string | null
           id?: string
           key_hash: string
           key_prefix: string
@@ -38,12 +47,17 @@ export type Database = {
           name: string
           permissions?: string[]
           project_id?: string | null
+          rate_limit_rpm?: number | null
           status?: string
           workspace_id: string
         }
         Update: {
+          allowed_cidrs?: string[]
+          conditions?: Json
           created_at?: string
+          created_by?: string | null
           environment?: string
+          expires_at?: string | null
           id?: string
           key_hash?: string
           key_prefix?: string
@@ -52,7 +66,56 @@ export type Database = {
           name?: string
           permissions?: string[]
           project_id?: string | null
+          rate_limit_rpm?: number | null
           status?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      api_key_rate_buckets: {
+        Row: {
+          api_key_id: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          api_key_id: string
+          request_count?: number
+          window_start: string
+        }
+        Update: {
+          api_key_id?: string
+          request_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
+      api_key_audit_events: {
+        Row: {
+          action: string
+          api_key_id: string | null
+          actor_user_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          workspace_id: string
+        }
+        Insert: {
+          action: string
+          api_key_id?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          workspace_id: string
+        }
+        Update: {
+          action?: string
+          api_key_id?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
           workspace_id?: string
         }
         Relationships: []
@@ -149,6 +212,7 @@ export type Database = {
         Row: {
           amount_original: number | null
           amount_usd: number
+          api_key_id: string | null
           batch_id: string | null
           cost_category_id: string | null
           created_at: string
@@ -172,6 +236,7 @@ export type Database = {
         Insert: {
           amount_original?: number | null
           amount_usd?: number
+          api_key_id?: string | null
           batch_id?: string | null
           cost_category_id?: string | null
           created_at?: string

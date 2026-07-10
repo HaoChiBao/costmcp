@@ -1,0 +1,133 @@
+---
+title: CostMessage
+description: The universal ingest envelope — usage, expense, subscription, allocation, and batch.
+---
+
+Everything writes to the ledger through one envelope. Callers never need to know table layout.
+
+## Envelope
+
+```json
+{
+  "project": "slideshow-studio",
+  "source": "api",
+  "idempotency_key": "run-abc123-image-1",
+  "timestamp": "2026-07-06T20:00:00Z",
+  "message": { "type": "usage", "...": "..." }
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `project` | string | ✓ | Project slug; auto-created on first use |
+| `source` | enum | | `api` \| `mcp` \| `manual` \| `import` (default `api`) |
+| `idempotency_key` | string | | Dedupes within a workspace |
+| `timestamp` | ISO datetime | | Optional event time |
+| `message` | object | ✓ | Discriminated union on `type` |
+
+**Batch:** send a JSON array of envelopes (1–100) to `POST /api/v1/messages`.
+
+## Message types
+
+### `usage`
+
+Code or automation generated cost.
+
+| Field | Type | Required |
+|-------|------|----------|
+| `type` | `"usage"` | ✓ |
+| `provider` | string | ✓ |
+| `model` | string | |
+| `unit_type` | [UnitType](#unit-types) | ✓ |
+| `quantity` | number (>0) | ✓ |
+| `unit_cost` | number (≥0) | |
+| `estimated_cost` | number (≥0) | Preferred for `amount_usd` |
+| `feature` | string | |
+| `batch_id` | string | |
+| `environment` | string | |
+| `external_request_id` | string | |
+| `metadata` | object | |
+
+**USD:** `estimated_cost ?? unit_cost ?? 0`
+
+### `expense`
+
+One-off purchase or invoice.
+
+| Field | Type | Required | Default |
+|-------|------|----------|---------|
+| `type` | `"expense"` | ✓ | |
+| `vendor` | string | ✓ | |
+| `amount` | number (>0) | ✓ | |
+| `currency` | string | | `USD` |
+| `category` | string | | |
+| `expense_type` | enum | | `one_time_purchase` |
+| `notes` | string | | |
+| `metadata` | object | | |
+
+`expense_type`: `one_time_purchase` \| `invoice` \| `credit_purchase` \| `refund` \| `reimbursement` \| `manual_adjustment`
+
+### `subscription`
+
+Recurring tool.
+
+| Field | Type | Required | Default |
+|-------|------|----------|---------|
+| `type` | `"subscription"` | ✓ | |
+| `vendor` | string | ✓ | |
+| `amount` | number (>0) | ✓ | |
+| `currency` | string | | `USD` |
+| `interval` | enum | ✓ | `monthly` \| `yearly` \| `weekly` \| `quarterly` |
+| `renewal_date` | ISO datetime | | |
+| `category` | string | | |
+| `project_allocation` | string | | |
+| `status` | enum | | `active` (`active`\|`trial`\|`paused`\|`cancelled`) |
+| `notes` | string | | |
+
+### `allocation`
+
+Split a real invoice across projects (never double-count).
+
+| Field | Type | Required |
+|-------|------|----------|
+| `type` | `"allocation"` | ✓ |
+| `parent_message_id` | UUID | ✓ |
+| `project` | string | ✓ |
+| `allocated_amount` | number (>0) | ✓ |
+| `currency` | string | default `USD` |
+| `notes` | string | |
+
+### `batch`
+
+Group a job run.
+
+| Field | Type | Required |
+|-------|------|----------|
+| `type` | `"batch"` | ✓ |
+| `name` | string | ✓ |
+| `total_estimated_cost` | number | |
+| `total_actual_cost` | number | |
+| `outputs_generated` | int | |
+| `usable_outputs` | int | |
+| `final_outputs` | int | |
+| `provider` | string | |
+| `feature` | string | |
+| `notes` | string | |
+
+**USD:** `total_actual_cost ?? total_estimated_cost ?? 0`
+
+## Unit types
+
+```
+input_tokens, output_tokens, total_tokens, image, video_second,
+video_generation, voice_character, voice_byte, voice_minute,
+transcription_minute, embedding, api_call, gpu_second,
+storage_gb, bandwidth_gb
+```
+
+## Principles
+
+1. **Project-first** — every message needs a project slug  
+2. **Append-only** — no silent deletes; adjust with new rows  
+3. **Idempotent** — retries with the same `idempotency_key` are safe  
+4. **Native units exact, USD estimated** — match pipeline trackers  

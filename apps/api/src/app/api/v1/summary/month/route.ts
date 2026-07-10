@@ -1,6 +1,10 @@
 import { createServiceClient, getMonthlySpend } from "@costmcp/db";
 import type { NextRequest } from "next/server";
-import { authenticateRequest, requirePermission } from "@/lib/auth";
+import {
+  authenticateRequest,
+  filterSummaryByPolicy,
+  requirePermission,
+} from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
@@ -11,7 +15,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const client = createServiceClient();
-    const rows = await getMonthlySpend(client, auth.workspaceId);
+    const allRows = await getMonthlySpend(client, auth.workspaceId);
+    const rows = filterSummaryByPolicy(auth, allRows);
 
     const total = rows.reduce((sum, row) => sum + Number(row.amount_usd ?? 0), 0);
     const usage = rows

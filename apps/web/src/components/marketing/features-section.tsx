@@ -36,13 +36,14 @@ const features = [
 
 export function FeaturesSection() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [revealed, setRevealed] = useState<Record<number, boolean>>({});
   const cardRefs = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
     const cards = cardRefs.current.filter(Boolean) as HTMLElement[];
     if (cards.length === 0) return;
 
-    const observer = new IntersectionObserver(
+    const activeObserver = new IntersectionObserver(
       (entries) => {
         const visible = entries
           .filter((entry) => entry.isIntersecting)
@@ -56,21 +57,40 @@ export function FeaturesSection() {
       { rootMargin: "-30% 0px -30% 0px", threshold: [0, 0.35, 0.65, 1] },
     );
 
-    cards.forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
+    const revealObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const index = Number(entry.target.getAttribute("data-index"));
+          if (Number.isNaN(index)) return;
+          setRevealed((prev) => (prev[index] ? prev : { ...prev, [index]: true }));
+          revealObserver.unobserve(entry.target);
+        });
+      },
+      { rootMargin: "0px 0px -12% 0px", threshold: 0.18 },
+    );
+
+    cards.forEach((card) => {
+      activeObserver.observe(card);
+      revealObserver.observe(card);
+    });
+    return () => {
+      activeObserver.disconnect();
+      revealObserver.disconnect();
+    };
   }, []);
 
   return (
     <section id="features" className="features-section">
       <div className="landing-spine__grid features-split">
-        <header className="landing-spine__pane landing-spine__pane--left features-section__intro">
+        <header className="landing-spine__pane landing-spine__pane--left features-section__intro scroll-reveal is-in">
           <p className="eyebrow">Product</p>
           <h2 className="features-section__title">How it works</h2>
         </header>
 
         <div className="landing-spine__pane landing-spine__pane--center" aria-hidden="true" />
 
-        <div className="landing-spine__pane landing-spine__pane--right features-section__intro features-section__intro--right">
+        <div className="landing-spine__pane landing-spine__pane--right features-section__intro features-section__intro--right scroll-reveal is-in">
           <p className="features-section__lead">
             Workspaces, collections, chart of accounts, and MCP — one ledger for every source.
           </p>
@@ -78,6 +98,8 @@ export function FeaturesSection() {
 
         {features.map((feature, index) => {
           const isLeft = index % 2 === 0;
+          const revealClass = revealed[index] ? " is-in" : "";
+          const activeClass = activeIndex === index ? " is-active" : "";
 
           return (
             <Fragment key={feature.id}>
@@ -88,7 +110,7 @@ export function FeaturesSection() {
                       cardRefs.current[index] = el;
                     }}
                     data-index={index}
-                    className={`landing-spine__pane landing-spine__pane--left features-split__card${activeIndex === index ? " is-active" : ""}`}
+                    className={`landing-spine__pane landing-spine__pane--left features-split__card scroll-reveal scroll-reveal--left${revealClass}${activeClass}`}
                   >
                     <FeatureCard feature={feature} index={index} align="left" />
                   </article>
@@ -104,7 +126,7 @@ export function FeaturesSection() {
                       cardRefs.current[index] = el;
                     }}
                     data-index={index}
-                    className={`landing-spine__pane landing-spine__pane--right features-split__card${activeIndex === index ? " is-active" : ""}`}
+                    className={`landing-spine__pane landing-spine__pane--right features-split__card scroll-reveal scroll-reveal--right${revealClass}${activeClass}`}
                   >
                     <FeatureCard feature={feature} index={index} align="right" />
                   </article>

@@ -1,0 +1,89 @@
+---
+title: Remote HTTP MCP
+api: POST https://mcp.costmcp.com
+description: JSON-RPC MCP endpoint for OAuth clients and API keys.
+---
+
+**Canonical agent URL:** [`https://mcp.costmcp.com`](https://mcp.costmcp.com)
+
+Stateless Streamable HTTP MCP. Auth: `Bearer cmcp_at_...` (OAuth) **or** `Bearer cmcp_live_...` (API key).
+
+The legacy path `https://api.costmcp.com/api/mcp` still works; prefer the dedicated MCP host.
+
+Unauthenticated requests return `401` with:
+
+```http
+WWW-Authenticate: Bearer resource_metadata="https://mcp.costmcp.com/.well-known/oauth-protected-resource", ...
+```
+
+## Client config
+
+Paste the URL into ChatGPT, Claude, Cursor, or any remote MCP client:
+
+```json
+{
+  "mcpServers": {
+    "costmcp": {
+      "url": "https://mcp.costmcp.com"
+    }
+  }
+}
+```
+
+OAuth clients discover the authorization server from protected resource metadata. For API-key clients (e.g. `mcp-remote`):
+
+```json
+{
+  "mcpServers": {
+    "costmcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.costmcp.com",
+        "--header",
+        "Authorization: Bearer cmcp_live_..."
+      ]
+    }
+  }
+}
+```
+
+## JSON-RPC methods
+
+| Method | Result |
+|--------|--------|
+| `initialize` | Protocol + `serverInfo: { name: "costmcp", version: "0.1.0" }` |
+| `notifications/initialized` | `202` empty |
+| `notifications/cancelled` | `202` empty |
+| `ping` | `{}` |
+| `tools/list` | Five tools |
+| `tools/call` | `{ name, arguments }` → text content JSON |
+
+## Other verbs
+
+| Method | Behavior |
+|--------|----------|
+| `GET` | `405` (no SSE) when authenticated |
+| `DELETE` | `204` |
+
+## Discovery
+
+Clients should fetch [protected resource metadata](/oauth/discovery) then complete the [OAuth flow](/oauth/overview).
+
+- Resource: `https://mcp.costmcp.com`
+- Authorization server: `https://api.costmcp.com`
+
+<RequestExample>
+```bash
+curl -X POST https://mcp.costmcp.com \
+  -H "Authorization: Bearer $COSTMCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list",
+    "params": {}
+  }'
+```
+</RequestExample>

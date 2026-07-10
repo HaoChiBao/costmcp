@@ -3,6 +3,10 @@ import { ConnectionsManager } from "@/components/dashboard/connections-manager";
 import { createClient } from "@/lib/supabase/server";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+const MCP_URL =
+  process.env.NEXT_PUBLIC_MCP_URL ??
+  process.env.COSTMCP_MCP_URL ??
+  `${API_URL}/api/mcp`;
 
 export default async function ConnectionsPage({
   params,
@@ -20,7 +24,7 @@ export default async function ConnectionsPage({
     <ConnectionsManager
       workspaceSlug={slug}
       apiUrl={API_URL}
-      mcpUrl={`${API_URL}/api/mcp`}
+      mcpUrl={MCP_URL}
     />
   );
 }

@@ -1,6 +1,10 @@
 import { createServiceClient, findProjectBySlug } from "@costmcp/db";
 import type { NextRequest } from "next/server";
-import { authenticateRequest, requirePermission } from "@/lib/auth";
+import {
+  assertProjectAccess,
+  authenticateRequest,
+  requirePermission,
+} from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
@@ -23,6 +27,9 @@ export async function GET(
     if (!project) {
       return Response.json({ error: "Project not found" }, { status: 404 });
     }
+
+    const projectDenied = assertProjectAccess(auth, project);
+    if (projectDenied) return projectDenied;
 
     let query = client
       .from("cost_messages")

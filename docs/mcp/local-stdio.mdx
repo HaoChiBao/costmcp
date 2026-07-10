@@ -1,0 +1,45 @@
+---
+title: Local stdio MCP
+description: Run CostMCP as a local MCP server for Cursor and Claude Desktop.
+---
+
+The stdio server proxies tools to the REST API using your ingest key.
+
+## Env
+
+| Variable | Default | Required |
+|----------|---------|----------|
+| `COSTMCP_API_URL` | `http://localhost:3000` | |
+| `COSTMCP_API_KEY` | — | ✓ |
+
+## Run
+
+```bash
+pnpm mcp:dev
+```
+
+## Cursor config
+
+```json
+{
+  "mcpServers": {
+    "costmcp": {
+      "command": "pnpm",
+      "args": ["mcp:dev"],
+      "cwd": "/absolute/path/to/costmcp",
+      "env": {
+        "COSTMCP_API_URL": "http://localhost:3000",
+        "COSTMCP_API_KEY": "cmcp_live_..."
+      }
+    }
+  }
+}
+```
+
+Also see `examples/cursor-mcp-config.json` in the repo.
+
+For hosted agents, use [`https://mcp.costmcp.com`](/mcp/remote-http) instead of stdio.
+
+## Tools
+
+Same as [MCP tools](/mcp/tools) except **`get_monthly_summary` is not available** on stdio — use `GET /api/v1/summary/month` or [remote MCP](/mcp/remote-http).

@@ -1,0 +1,34 @@
+---
+title: Create workspace
+api: POST /api/v1/workspaces
+description: Create a workspace and seed defaults.
+---
+
+Requires a Supabase user JWT. Caller becomes `owner`. Slug is derived from `name` (suffix on collision). Calls `seed_workspace_defaults`.
+
+<ParamField body="name" type="string" required>
+  Workspace display name
+</ParamField>
+
+<ParamField body="type" type="string">
+  `personal` \| `team` \| `organization`
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional description
+</ParamField>
+
+<ResponseField name="workspace" type="object" required>
+  Full workspaces row
+</ResponseField>
+
+**Status:** `201`
+
+<RequestExample>
+```bash
+curl -X POST https://api.costmcp.com/api/v1/workspaces \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Acme AI", "type": "team" }'
+```
+</RequestExample>

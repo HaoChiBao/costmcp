@@ -1,0 +1,56 @@
+---
+title: CostMCP
+description: Know what every AI project actually costs — REST API, MCP tools, and SDKs for an AI-native cost ledger.
+---
+
+**CostMCP** is a project-first cost ledger for AI builders. Track tokens, generations, subscriptions, and project spend through one backend with three faces: **REST**, **MCP**, and **SDK**.
+
+## What you can do
+
+- **Ingest usage** — log tokens, images, voice, and GPU seconds with idempotent `POST /api/v1/messages`
+- **Log expenses & subscriptions** — one-off invoices and recurring tools in the same ledger
+- **Query spend** — monthly summaries, project drill-downs, and budget remaining
+- **Connect agents** — Cursor, Claude, and ChatGPT via local stdio MCP or remote OAuth at `https://mcp.costmcp.com`
+- **Issue API keys** — workspace keys with permissions, project scope, spend caps, expiry, and rate/IP conditions
+- **Manage workspaces** — dashboard APIs for org structure, metrics, API keys, and MCP connections
+
+## Base URLs
+
+| Environment | URL |
+|-------------|-----|
+| Production API | `https://api.costmcp.com` |
+| Production MCP | `https://mcp.costmcp.com` |
+| Production web | `https://costmcp.com` |
+| Local API | `http://localhost:3000` |
+| Local MCP | `http://localhost:3000/api/mcp` |
+| Local web | `http://localhost:3001` |
+
+## Auth at a glance
+
+| Client | Auth |
+|--------|------|
+| Pipelines / SDKs / local MCP | `Authorization: Bearer cmcp_live_...` |
+| Dashboard / workspace APIs | Supabase user JWT |
+| Remote MCP (ChatGPT, Claude) | OAuth 2.1 access token `cmcp_at_...` |
+
+See [Authentication](/concepts/authentication) and [API keys & conditions](/concepts/api-keys) for details.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install, set env vars, and send your first CostMessage
+  </Card>
+  <Card title="CostMessage" icon="envelope" href="/concepts/cost-message">
+    Envelope schema and message types
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/overview">
+    Every REST endpoint
+  </Card>
+  <Card title="API keys" icon="key" href="/concepts/api-keys">
+    Generate keys with permissions and conditions
+  </Card>
+  <Card title="MCP Tools" icon="plug" href="/mcp/overview">
+    Local stdio and remote HTTP MCP
+  </Card>
+</CardGroup>

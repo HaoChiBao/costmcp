@@ -1,0 +1,46 @@
+---
+title: Discovery metadata
+description: RFC 8414 and RFC 9728 well-known documents.
+---
+
+## Authorization server
+
+```
+GET /.well-known/oauth-authorization-server
+```
+
+Rewritten to `/api/oauth/metadata/authorization-server`. Cache: `public, max-age=3600`.
+
+Key fields:
+
+| Field | Value |
+|-------|-------|
+| `issuer` | `COSTMCP_PUBLIC_URL` |
+| `authorization_endpoint` | `/api/oauth/authorize` |
+| `token_endpoint` | `/api/oauth/token` |
+| `registration_endpoint` | `/api/oauth/register` |
+| `code_challenge_methods_supported` | `["S256"]` |
+| `grant_types_supported` | `authorization_code`, `refresh_token` |
+| `scopes_supported` | four CostMCP scopes |
+
+## Protected resource
+
+```
+GET https://mcp.costmcp.com/.well-known/oauth-protected-resource
+```
+
+Also available on the API host. Cache: `public, max-age=3600`.
+
+| Field | Value |
+|-------|-------|
+| `resource` | `https://mcp.costmcp.com` |
+| `authorization_servers` | `["https://api.costmcp.com"]` |
+| `bearer_methods_supported` | `["header"]` |
+| `resource_name` | `CostMCP` |
+
+<RequestExample>
+```bash
+curl https://api.costmcp.com/.well-known/oauth-authorization-server
+curl https://mcp.costmcp.com/.well-known/oauth-protected-resource
+```
+</RequestExample>

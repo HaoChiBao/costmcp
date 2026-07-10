@@ -1,0 +1,44 @@
+---
+title: Permissions
+description: Scoped API key and OAuth permissions.
+---
+
+Permissions are stored as a string array on each API key and OAuth connection. They are **capabilities** — combine them with [key conditions](/concepts/api-keys) (project scope, limits, expiry) for full policy.
+
+## Values
+
+| Permission | Used today |
+|------------|------------|
+| `log_usage` | `POST /api/v1/messages` (usage / batch / allocation), MCP `log_usage` |
+| `add_expenses` | Expense messages, MCP `add_expense` |
+| `read_summaries` | Summary / spend / budget endpoints + read MCP tools |
+| `estimate_costs` | Reserved (no estimate endpoint yet) |
+| `manage_subscriptions` | Subscription messages (`POST /api/v1/messages`) |
+| `delete_records` | Reserved |
+
+Missing permission → `403` with `error: "missing_permission"`.
+
+## Defaults
+
+New ingest keys default to:
+
+```json
+["log_usage", "add_expenses", "read_summaries", "estimate_costs"]
+```
+
+OAuth scopes use the same four strings (space-separated in the OAuth protocol). Dashboard create UI exposes the first four as checkboxes.
+
+## Conditions vs permissions
+
+| Layer | Controls |
+|-------|----------|
+| **Permissions** | *What actions* the key may call |
+| **Conditions** | *Where / how much / how often / from where* — project, monthly USD, expiry, RPM, CIDRs |
+
+See [API keys & conditions](/concepts/api-keys).
+
+## Enforcement
+
+- Checked on every REST ingest/read and MCP tool call authenticated with an API key
+- Dashboard JWT routes do **not** use these permissions; they use workspace membership instead
+- Project-scoped keys only see summaries/spend for allowed projects

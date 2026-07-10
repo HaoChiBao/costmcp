@@ -1,0 +1,67 @@
+---
+title: Monthly summary
+api: GET /api/v1/summary/month
+description: Workspace spend for the current UTC month.
+---
+
+Requires permission `read_summaries`. Scoped to the API key's workspace.
+
+<ResponseField name="period" type="string" required>
+  Always `"month"`
+</ResponseField>
+
+<ResponseField name="total_usd" type="number" required>
+  Sum of all message types
+</ResponseField>
+
+<ResponseField name="usage_usd" type="number" required>
+  Usage-only total
+</ResponseField>
+
+<ResponseField name="expense_usd" type="number" required>
+  Expense total
+</ResponseField>
+
+<ResponseField name="subscription_usd" type="number" required>
+  Subscription total
+</ResponseField>
+
+<ResponseField name="by_project" type="object" required>
+  Map of project slug → amount USD
+</ResponseField>
+
+<ResponseField name="top_project" type="object">
+  `{ slug, amount_usd }` for the highest-spend project
+</ResponseField>
+
+<ResponseField name="message_count" type="number" required>
+  Number of ledger rows in the period
+</ResponseField>
+
+<RequestExample>
+```bash
+curl https://api.costmcp.com/api/v1/summary/month \
+  -H "Authorization: Bearer $COSTMCP_API_KEY"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "period": "month",
+  "total_usd": 42.5,
+  "usage_usd": 30.1,
+  "expense_usd": 10,
+  "subscription_usd": 2.4,
+  "by_project": {
+    "slideshow-studio": 28.2,
+    "progressgoat": 14.3
+  },
+  "top_project": {
+    "slug": "slideshow-studio",
+    "amount_usd": 28.2
+  },
+  "message_count": 184
+}
+```
+</ResponseExample>

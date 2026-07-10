@@ -10,12 +10,23 @@ import {
   requirePermission,
 } from "@/lib/auth";
 
+function permissionForEnvelope(envelope: CostMessageEnvelope): string {
+  switch (envelope.message.type) {
+    case "expense":
+      return "add_expenses";
+    case "subscription":
+      return "manage_subscriptions";
+    case "usage":
+    case "batch":
+    case "allocation":
+    default:
+      return "log_usage";
+  }
+}
+
 export async function POST(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (auth instanceof Response) return auth;
-
-  const denied = requirePermission(auth, "log_usage");
-  if (denied) return denied;
 
   let body: unknown;
   try {
@@ -28,6 +39,11 @@ export async function POST(request: NextRequest) {
     ? parseCostMessageBatch(body)
     : [parseCostMessage(body)];
 
+  for (const envelope of envelopes) {
+    const denied = requirePermission(auth, permissionForEnvelope(envelope));
+    if (denied) return denied;
+  }
+
   try {
     const results: Awaited<ReturnType<typeof persistCostMessage>>[] = [];
     for (const envelope of envelopes) {
@@ -37,7 +53,25 @@ export async function POST(request: NextRequest) {
       status: 201,
     });
   } catch (err) {
+    const status =
+      err && typeof err === "object" && "status" in err && typeof (err as { status: unknown }).status === "number"
+        ? (err as { status: number }).status
+        : 500;
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code: unknown }).code)
+        : undefined;
+    const bodyPayload =
+      err && typeof err === "object" && "body" in err
+        ? (err as { body: unknown }).body
+        : undefined;
+    if (bodyPayload && typeof bodyPayload === "object") {
+      return Response.json(bodyPayload, { status });
+    }
     const message = err instanceof Error ? err.message : "Failed to persist message";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json(
+      code ? { error: code, error_description: message } : { error: message },
+      { status },
+    );
   }
 }

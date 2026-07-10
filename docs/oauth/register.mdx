@@ -1,0 +1,59 @@
+---
+title: Dynamic client registration
+api: POST /api/oauth/register
+authMethod: none
+description: RFC 7591 — register an OAuth client.
+---
+
+Public endpoint. Returns `201` with `client_id` (`cmcp_client_...`). Confidential clients also receive `client_secret` (`cmcp_secret_...`).
+
+<ParamField body="redirect_uris" type="string[]" required>
+  At least one redirect URI
+</ParamField>
+
+<ParamField body="client_name" type="string">
+  Display name shown on consent
+</ParamField>
+
+<ParamField body="grant_types" type="string[]">
+  Typically `authorization_code`, `refresh_token`
+</ParamField>
+
+<ParamField body="response_types" type="string[]">
+  Typically `["code"]`
+</ParamField>
+
+<ParamField body="token_endpoint_auth_method" type="string">
+  Default `"none"` (public PKCE clients)
+</ParamField>
+
+<ParamField body="scope" type="string">
+  Space-separated scopes
+</ParamField>
+
+<ParamField body="logo_uri" type="string">
+  Optional logo URL
+</ParamField>
+
+<ParamField body="client_uri" type="string">
+  Optional homepage
+</ParamField>
+
+| Status | Body |
+|--------|------|
+| `400` | `{ error, error_description }` |
+| `500` | `server_error` |
+
+<RequestExample>
+```bash
+curl -X POST https://api.costmcp.com/api/oauth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_name": "My Agent",
+    "redirect_uris": ["https://example.com/callback"],
+    "token_endpoint_auth_method": "none",
+    "grant_types": ["authorization_code", "refresh_token"],
+    "response_types": ["code"]
+  }'
+```
+</RequestExample>

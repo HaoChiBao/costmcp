@@ -1,0 +1,47 @@
+---
+title: OAuth overview
+description: OAuth 2.1 + PKCE for remote MCP clients.
+---
+
+CostMCP splits roles across hosts: **authorization server** at `https://api.costmcp.com`, **MCP resource** at `https://mcp.costmcp.com`.
+
+## Flow
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP client
+  participant AS as api.costmcp.com
+  participant MCP as mcp.costmcp.com
+  participant Web as Dashboard
+
+  Client->>AS: POST /api/oauth/register
+  Client->>AS: GET /api/oauth/authorize (PKCE)
+  AS->>Web: Redirect to /oauth/consent
+  Web->>AS: POST /api/oauth/consent
+  AS->>Client: Redirect with code
+  Client->>AS: POST /api/oauth/token
+  Client->>MCP: POST https://mcp.costmcp.com (Bearer cmcp_at_...)
+```
+
+## Token prefixes
+
+| Prefix | Meaning |
+|--------|---------|
+| `cmcp_client_` | Client ID |
+| `cmcp_secret_` | Client secret (confidential) |
+| `cmcp_at_` | Access token (1h) |
+| `cmcp_rt_` | Refresh token (30d) |
+
+## Scopes
+
+```
+log_usage add_expenses read_summaries estimate_costs
+```
+
+## Protected resource
+
+`https://mcp.costmcp.com`
+
+(Legacy: `https://api.costmcp.com/api/mcp` still works.)
+
+Manage connections from the dashboard (**Connect**) or [Connections API](/api-reference/connections).

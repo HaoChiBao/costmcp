@@ -1,0 +1,139 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "CostMCP",
+  "theme": "mint",
+  "logo": {
+    "dark": "/logo.png",
+    "light": "/logo.png"
+  },
+  "favicon": "/favicon.png",
+  "colors": {
+    "primary": "#2A2722",
+    "light": "#3E3B36",
+    "dark": "#FAFAFA"
+  },
+  "font": {
+    "headings": {
+      "family": "Fraunces",
+      "weight": 400
+    },
+    "body": {
+      "family": "Inter",
+      "weight": 400
+    }
+  },
+  "api": {
+    "mdx": {
+      "server": [
+        "https://api.costmcp.com",
+        "http://localhost:3000"
+      ],
+      "auth": {
+        "method": "bearer"
+      }
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Dashboard",
+        "href": "https://costmcp.com"
+      },
+      {
+        "label": "GitHub",
+        "href": "https://github.com/HaoChiBao/costmcp"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/HaoChiBao/costmcp"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": ["index", "quickstart"]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/authentication",
+              "concepts/api-keys",
+              "concepts/cost-message",
+              "concepts/permissions"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["api-reference/overview"]
+          },
+          {
+            "group": "Public",
+            "pages": ["api-reference/health"]
+          },
+          {
+            "group": "Ingest & summaries",
+            "pages": [
+              "api-reference/messages",
+              "api-reference/summary-month",
+              "api-reference/project-spend",
+              "api-reference/budgets-status"
+            ]
+          },
+          {
+            "group": "Dashboard (user JWT)",
+            "pages": [
+              "api-reference/me",
+              "api-reference/workspaces-create",
+              "api-reference/workspaces-org",
+              "api-reference/workspaces-metrics",
+              "api-reference/workspaces-activity",
+              "api-reference/api-keys",
+              "api-reference/connections"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "MCP",
+        "groups": [
+          {
+            "group": "MCP",
+            "pages": [
+              "mcp/overview",
+              "mcp/local-stdio",
+              "mcp/remote-http",
+              "mcp/tools"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "OAuth",
+        "groups": [
+          {
+            "group": "OAuth 2.1",
+            "pages": [
+              "oauth/overview",
+              "oauth/discovery",
+              "oauth/register",
+              "oauth/authorize",
+              "oauth/consent",
+              "oauth/token"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,80 @@
+---
+title: MCP tools
+description: Parameters and behavior for every CostMCP MCP tool.
+---
+
+Call these via local stdio or remote HTTP at [`https://mcp.costmcp.com`](/mcp/remote-http).
+
+## `log_usage`
+
+Permission: `log_usage`
+
+| Param | Type | Required |
+|-------|------|----------|
+| `project` | string | ✓ |
+| `provider` | string | ✓ |
+| `unit_type` | string | ✓ |
+| `quantity` | number (>0) | ✓ |
+| `model` | string | |
+| `estimated_cost` | number | |
+| `feature` | string | |
+| `batch_id` | string | |
+
+**Local:** `POST /api/v1/messages` with `source: "mcp"`.  
+**Remote:** persists directly via service role.
+
+## `add_expense`
+
+Permission: `add_expenses`
+
+| Param | Type | Required | Default |
+|-------|------|----------|---------|
+| `project` | string | ✓ | |
+| `vendor` | string | ✓ | |
+| `amount` | number (>0) | ✓ | |
+| `currency` | string | | `USD` |
+| `category` | string | | |
+| `notes` | string | | |
+
+## `get_project_spend`
+
+Permission: `read_summaries`
+
+| Param | Type | Required |
+|-------|------|----------|
+| `project` | string | ✓ |
+| `from` | ISO datetime | |
+| `to` | ISO datetime | |
+
+**Local:** `GET /api/v1/projects/{project}/spend`.  
+**Remote:** DB query (limit 200).
+
+## `get_budget_status`
+
+Permission: `read_summaries`  
+No parameters. Returns the same shape as `GET /api/v1/budgets/status`.
+
+## `get_monthly_summary` (remote only)
+
+Permission: `read_summaries`  
+No parameters. Same shape as `GET /api/v1/summary/month`.
+
+```json
+{
+  "period": "month",
+  "total_usd": 0,
+  "usage_usd": 0,
+  "subscription_usd": 0,
+  "expense_usd": 0,
+  "by_project": {},
+  "top_project": null,
+  "message_count": 0
+}
+```
+
+## Example prompts
+
+- "Log 1.2M tokens under ProgressGoat"
+- "Log $18.40 Kling batch under YouTube Pipeline"
+- "How much did Slideshow Studio cost this week?"
+- "Can I afford 100 video generations?"

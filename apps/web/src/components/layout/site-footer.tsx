@@ -25,6 +25,7 @@ export function SiteFooter() {
             <p className="meta-label">Product</p>
             <nav className="site-footer__links" aria-label="Product">
               <Link href="/#features">How it works</Link>
+              <a href="https://docs.costmcp.com">Docs</a>
             </nav>
           </div>
 

@@ -1,0 +1,34 @@
+---
+title: MCP connections
+description: List and revoke OAuth MCP connections for a workspace.
+---
+
+Requires Supabase JWT + workspace membership.
+
+## List connections
+
+```
+GET /api/v1/workspaces/{slug}/connections
+```
+
+Returns `{ connections: [{ id, client_id, client_name, scope, status, created_at, last_used_at }] }` for active connections.
+
+## Revoke connection
+
+```
+DELETE /api/v1/workspaces/{slug}/connections/{id}
+```
+
+Sets connection `status=revoked` and revokes all related `oauth_tokens`. Returns `{ ok: true }`.
+
+<RequestExample>
+```bash List
+curl https://api.costmcp.com/api/v1/workspaces/acme-ai/connections \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+
+```bash Revoke
+curl -X DELETE https://api.costmcp.com/api/v1/workspaces/acme-ai/connections/{id} \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+</RequestExample>

@@ -1,0 +1,143 @@
+---
+title: API keys
+api: GET /api/v1/workspaces/{slug}/api-keys
+description: Create, update, rotate, and revoke workspace ingest keys with conditions.
+---
+
+All management routes require a Supabase user JWT + workspace membership.
+
+Guide: [API keys & conditions](/concepts/api-keys). Ingest with the secret via `Authorization: Bearer cmcp_live_...` on REST or [`https://mcp.costmcp.com`](/mcp/remote-http).
+
+## List keys
+
+```
+GET /api/v1/workspaces/{slug}/api-keys
+```
+
+Returns `{ keys: [...] }` including conditions and `spent_usd` (month-to-date when `monthly_limit` is set). Secrets are never returned.
+
+Fields: `id`, `name`, `key_prefix`, `permissions`, `environment`, `status`, `project_id`, `monthly_limit`, `expires_at`, `rate_limit_rpm`, `allowed_cidrs`, `conditions`, `last_used_at`, `created_at`, `spent_usd`.
+
+## Create key
+
+```
+POST /api/v1/workspaces/{slug}/api-keys
+```
+
+<ParamField body="name" type="string" required>
+  Display name
+</ParamField>
+
+<ParamField body="permissions" type="string[]">
+  Defaults to `log_usage`, `add_expenses`, `read_summaries`, `estimate_costs`
+</ParamField>
+
+<ParamField body="project_id" type="string">
+  Restrict the key to a single project UUID (null = all projects)
+</ParamField>
+
+<ParamField body="project_slugs" type="string[]">
+  Optional allow-list stored in `conditions.project_slugs` (ignored when `project_id` is set)
+</ParamField>
+
+<ParamField body="monthly_limit" type="number">
+  Max USD attributed to this key in the current UTC month
+</ParamField>
+
+<ParamField body="expires_at" type="string">
+  ISO datetime; requests after this return `401 key_expired`
+</ParamField>
+
+<ParamField body="rate_limit_rpm" type="integer">
+  Max requests per rolling minute (`429 rate_limited`)
+</ParamField>
+
+<ParamField body="allowed_cidrs" type="string[]">
+  Empty = allow all. Otherwise client IP must match (`403 ip_not_allowed`)
+</ParamField>
+
+<ParamField body="environment" type="string">
+  `live` (default) or `test`
+</ParamField>
+
+<ParamField body="conditions" type="object">
+  Extensible JSON: `project_slugs`, `deny_project_slugs`, `features`, `sources`, `notes`
+</ParamField>
+
+**201 response** includes `secret` (`cmcp_live_...`) — **shown once**.
+
+Valid permissions: `log_usage`, `add_expenses`, `read_summaries`, `estimate_costs`, `manage_subscriptions`, `delete_records`.
+
+## Update conditions
+
+```
+PATCH /api/v1/workspaces/{slug}/api-keys/{id}
+```
+
+Same body fields as create (all optional). Does **not** rotate the secret. Creates an audit event (`updated`).
+
+## Rotate secret
+
+```
+POST /api/v1/workspaces/{slug}/api-keys/{id}/rotate
+```
+
+Issues a new secret (shown once) and invalidates the previous hash. Conditions are preserved. Audit action: `rotated`.
+
+## Revoke key
+
+```
+DELETE /api/v1/workspaces/{slug}/api-keys/{id}
+```
+
+Soft-revokes (`status = "revoked"`). Returns `{ ok: true }`. Audit action: `revoked`.
+
+## Enforcement on ingest
+
+| Condition | HTTP | Error code |
+|-----------|------|------------|
+| Expired | 401 | `key_expired` |
+| IP not allowed | 403 | `ip_not_allowed` |
+| Rate exceeded | 429 | `rate_limited` |
+| Missing permission | 403 | `missing_permission` |
+| Wrong project | 403 | `project_not_allowed` |
+| Monthly cap | 403 | `monthly_limit_exceeded` |
+| Wrong source / feature | 403 | `source_not_allowed` / `feature_not_allowed` |
+
+Ledger rows stamped with `api_key_id` power the monthly spend meter.
+
+<RequestExample>
+```bash List
+curl https://api.costmcp.com/api/v1/workspaces/acme-ai/api-keys \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+
+```bash Create
+curl -X POST https://api.costmcp.com/api/v1/workspaces/acme-ai/api-keys \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Slideshow CI",
+    "permissions": ["log_usage", "read_summaries"],
+    "monthly_limit": 75,
+    "rate_limit_rpm": 120
+  }'
+```
+
+```bash Patch
+curl -X PATCH https://api.costmcp.com/api/v1/workspaces/acme-ai/api-keys/{id} \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "monthly_limit": 100 }'
+```
+
+```bash Rotate
+curl -X POST https://api.costmcp.com/api/v1/workspaces/acme-ai/api-keys/{id}/rotate \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+
+```bash Revoke
+curl -X DELETE https://api.costmcp.com/api/v1/workspaces/acme-ai/api-keys/{id} \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+</RequestExample>

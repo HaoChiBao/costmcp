@@ -1,0 +1,144 @@
+---
+title: Quickstart
+description: Get CostMCP running locally and ingest your first usage event.
+---
+
+## 1. Install
+
+```bash
+git clone https://github.com/HaoChiBao/costmcp.git
+cd costmcp
+pnpm install
+cp .env.example .env
+```
+
+Fill in at least:
+
+```bash
+SUPABASE_URL=https://bylrekkhwcwosdmcgfsg.supabase.co
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+COSTMCP_API_KEY=cmcp_live_...
+```
+
+`apps/api` and `apps/web` symlink to the root `.env`.
+
+## 2. Run
+
+```bash
+pnpm dev          # API :3000 · web :3001
+pnpm mcp:dev      # optional local MCP (stdio)
+```
+
+Health check:
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+## 3. Ingest a CostMessage
+
+```bash
+curl -X POST http://localhost:3000/api/v1/messages \
+  -H "Authorization: Bearer $COSTMCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project": "slideshow-studio",
+    "source": "api",
+    "idempotency_key": "quickstart-1",
+    "message": {
+      "type": "usage",
+      "provider": "openai",
+      "model": "gpt-image-2",
+      "unit_type": "image",
+      "quantity": 1,
+      "estimated_cost": 0.04,
+      "feature": "slide_generation"
+    }
+  }'
+```
+
+**201 response:**
+
+```json
+{
+  "id": "61363057-54d3-4dae-9883-7df9f56cc979",
+  "amount_usd": 0.04,
+  "project_id": "1a161e43-c198-4376-82be-d0b1322c1f1f",
+  "created_at": "2026-07-09T21:48:21.437351+00:00"
+}
+```
+
+Projects are **auto-created** from the `project` slug on first ingest.
+
+## 4. Read spend
+
+```bash
+curl http://localhost:3000/api/v1/summary/month \
+  -H "Authorization: Bearer $COSTMCP_API_KEY"
+
+curl "http://localhost:3000/api/v1/projects/slideshow-studio/spend" \
+  -H "Authorization: Bearer $COSTMCP_API_KEY"
+
+curl http://localhost:3000/api/v1/budgets/status \
+  -H "Authorization: Bearer $COSTMCP_API_KEY"
+```
+
+## 5. Connect Cursor (local MCP)
+
+See [Local stdio MCP](/mcp/local-stdio). Minimal config:
+
+```json
+{
+  "mcpServers": {
+    "costmcp": {
+      "command": "pnpm",
+      "args": ["mcp:dev"],
+      "cwd": "/absolute/path/to/costmcp",
+      "env": {
+        "COSTMCP_API_URL": "http://localhost:3000",
+        "COSTMCP_API_KEY": "cmcp_live_..."
+      }
+    }
+  }
+}
+```
+
+## 6. Connect a remote agent (hosted MCP)
+
+See [Remote HTTP MCP](/mcp/remote-http). Production URL:
+
+```json
+{
+  "mcpServers": {
+    "costmcp": {
+      "url": "https://mcp.costmcp.com"
+    }
+  }
+}
+```
+
+## 7. Create a production API key
+
+In the dashboard (**Connect → API keys**), create a key with the permissions and conditions you need (project scope, monthly limit, expiry, rate limit). Copy the secret once.
+
+See [API keys & conditions](/concepts/api-keys) for the full model, or the [API keys reference](/api-reference/api-keys) for REST management.
+
+```bash
+export COSTMCP_API_KEY=cmcp_live_...   # from dashboard
+curl -X POST https://api.costmcp.com/api/v1/messages \
+  -H "Authorization: Bearer $COSTMCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "project": "slideshow-studio", "source": "api", "message": { "type": "usage", "provider": "openai", "unit_type": "image", "quantity": 1, "estimated_cost": 0.04 } }'
+```
+
+## Production
+
+| Service | URL |
+|---------|-----|
+| API | `https://api.costmcp.com` |
+| Web | `https://costmcp.com` |
+| MCP (agents) | `https://mcp.costmcp.com` |
+| Docs | `https://docs.costmcp.com` |
+
+Use dashboard-generated keys in production — do not rely on the server `COSTMCP_API_KEY` env fallback.

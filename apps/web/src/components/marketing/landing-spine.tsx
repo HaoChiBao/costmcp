@@ -53,18 +53,31 @@ export function LandingSpine({ children }: LandingSpineProps) {
     if (!spine) return;
 
     const hero = spine.querySelector<HTMLElement>(".hero--statement");
+    let frame = 0;
+    let smoothedGrow = 0;
+    let hasSmoothed = false;
 
     const update = () => {
       const heroHeight = hero?.offsetHeight ?? window.innerHeight;
       const growDistance = Math.max(heroHeight * 0.42, 280);
       const scrollInHero = window.scrollY - (hero?.offsetTop ?? 0);
 
-      const growProgress = reduceMotion
+      const rawGrow = reduceMotion
         ? scrollInHero > growDistance * 0.5
           ? 1
           : 0
         : clamp(scrollInHero / growDistance, 0, 1);
 
+      // Ease scroll-driven values so wheel/trackpad motion feels continuous.
+      if (!hasSmoothed || reduceMotion) {
+        smoothedGrow = rawGrow;
+        hasSmoothed = true;
+      } else {
+        smoothedGrow += (rawGrow - smoothedGrow) * 0.18;
+        if (Math.abs(rawGrow - smoothedGrow) < 0.0008) smoothedGrow = rawGrow;
+      }
+
+      const growProgress = smoothedGrow;
       const sideOpacity = clamp(1 - growProgress * 0.92, 0.06, 1);
 
       const centerScrollScale =
@@ -136,15 +149,25 @@ export function LandingSpine({ children }: LandingSpineProps) {
       spine.style.setProperty("--center-lift", `${centerLift}px`);
       spine.style.setProperty("--side-hooks-opacity", String(sideOpacity));
       spine.style.setProperty("--hook-sway-deg", `${hookSway}deg`);
+
+      if (!reduceMotion && Math.abs(rawGrow - smoothedGrow) > 0.0008) {
+        frame = requestAnimationFrame(update);
+      }
+    };
+
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
     };
 
     update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
 
     return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
     };
   }, [reduceMotion]);
 

@@ -1,0 +1,50 @@
+---
+title: Workspace org tree
+api: GET /api/v1/workspaces/{slug}/org
+description: Collections, projects, categories, vendors, and budgets.
+---
+
+Requires Supabase JWT + workspace membership.
+
+<ParamField path="slug" type="string" required>
+  Workspace slug
+</ParamField>
+
+<ResponseField name="workspace" type="object" required>
+  Workspace row
+</ResponseField>
+
+<ResponseField name="role" type="string" required>
+  Caller's role (e.g. `owner`)
+</ResponseField>
+
+<ResponseField name="collections" type="array" required>
+  Collections with nested `projects`
+</ResponseField>
+
+<ResponseField name="ungrouped_projects" type="array" required>
+  Projects not in a collection
+</ResponseField>
+
+<ResponseField name="categories" type="array" required>
+  Chart of accounts with nested `children`
+</ResponseField>
+
+<ResponseField name="vendors" type="array" required>
+  Vendor list
+</ResponseField>
+
+<ResponseField name="budgets" type="array" required>
+  Budget definitions
+</ResponseField>
+
+| Status | Meaning |
+|--------|---------|
+| `404` | Not found or not a member |
+
+<RequestExample>
+```bash
+curl https://api.costmcp.com/api/v1/workspaces/acme-ai/org \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+</RequestExample>

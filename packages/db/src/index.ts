@@ -1,7 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "./database.types.js";
+import type { Database, Json } from "./database.types.js";
 
-export type { Database };
+export type { Database, Json };
+export { sumSpendForApiKey, utcMonthStartIso } from "./api-keys.js";
 
 export function createServiceClient(): SupabaseClient<Database> {
   const url = process.env.SUPABASE_URL;

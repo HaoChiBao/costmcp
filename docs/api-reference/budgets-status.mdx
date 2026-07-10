@@ -1,0 +1,50 @@
+---
+title: Budget status
+api: GET /api/v1/budgets/status
+description: Remaining budget vs current UTC month spend.
+---
+
+Requires permission `read_summaries`.
+
+<ResponseField name="budgets" type="array" required>
+  Budget rows for the workspace
+</ResponseField>
+
+Each budget object:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | string | UUID |
+| `name` | string | |
+| `scope_type` | string | e.g. `global` |
+| `amount` | number | Limit USD |
+| `spent` | number | Current UTC month |
+| `remaining` | number | `amount - spent` |
+| `percent_used` | number | `spent / amount` |
+| `alert` | boolean | `true` when `percent_used >= 0.8` |
+
+<RequestExample>
+```bash
+curl https://api.costmcp.com/api/v1/budgets/status \
+  -H "Authorization: Bearer $COSTMCP_API_KEY"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "budgets": [
+    {
+      "id": "a7e5a4c3-54b9-48b6-abed-5d797223b81d",
+      "name": "Monthly AI spend",
+      "scope_type": "global",
+      "amount": 600,
+      "spent": 42.5,
+      "remaining": 557.5,
+      "percent_used": 0.0708,
+      "alert": false
+    }
+  ]
+}
+```
+</ResponseExample>

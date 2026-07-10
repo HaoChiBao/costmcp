@@ -1,0 +1,73 @@
+---
+title: API overview
+description: Base URLs, auth headers, and endpoint map.
+---
+
+## Servers
+
+| Name | URL |
+|------|-----|
+| Production API | `https://api.costmcp.com` |
+| Production MCP | `https://mcp.costmcp.com` |
+| Local API | `http://localhost:3000` |
+| Local MCP | `http://localhost:3000/api/mcp` |
+
+REST paths below are relative to the API server root (they include the `/api` prefix). For agents, use the MCP host — see [Remote HTTP MCP](/mcp/remote-http).
+
+## Auth header
+
+```http
+Authorization: Bearer <token>
+```
+
+| Token | Used for |
+|-------|----------|
+| `cmcp_live_...` | Ingest & summary APIs |
+| Supabase JWT | Dashboard / workspace APIs |
+| `cmcp_at_...` | Remote MCP only |
+
+## Endpoint map
+
+### Public
+
+| Method | Path | Auth |
+|--------|------|------|
+| `GET` | `/api/health` | None |
+
+### Ingest & summaries (API key)
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `POST` | `/api/v1/messages` | `log_usage` (usage/batch/allocation), `add_expenses` (expense), `manage_subscriptions` (subscription) |
+| `GET` | `/api/v1/summary/month` | `read_summaries` (scoped to key project conditions) |
+| `GET` | `/api/v1/projects/{slug}/spend` | `read_summaries` |
+| `GET` | `/api/v1/budgets/status` | `read_summaries` |
+
+API keys may also carry **conditions** (project scope, monthly limit, expiry, rate limit, CIDRs). See [API keys & conditions](/concepts/api-keys).
+
+### Dashboard (user JWT)
+
+| Method | Path |
+|--------|------|
+| `GET` | `/api/v1/me` |
+| `POST` | `/api/v1/workspaces` |
+| `GET` | `/api/v1/workspaces/{slug}/org` |
+| `GET` | `/api/v1/workspaces/{slug}/metrics` |
+| `GET` | `/api/v1/workspaces/{slug}/activity` |
+| `GET` / `POST` | `/api/v1/workspaces/{slug}/api-keys` |
+| `PATCH` / `DELETE` | `/api/v1/workspaces/{slug}/api-keys/{id}` |
+| `POST` | `/api/v1/workspaces/{slug}/api-keys/{id}/rotate` |
+| `GET` | `/api/v1/workspaces/{slug}/connections` |
+| `DELETE` | `/api/v1/workspaces/{slug}/connections/{id}` |
+
+### OAuth & MCP
+
+Documented under the **OAuth** and **MCP** tabs.
+
+| | URL |
+|--|-----|
+| MCP (agents) | `POST https://mcp.costmcp.com` |
+| Authorization server metadata | `GET https://api.costmcp.com/.well-known/oauth-authorization-server` |
+| Protected resource metadata | `GET https://mcp.costmcp.com/.well-known/oauth-protected-resource` |
+
+Legacy MCP path: `POST https://api.costmcp.com/api/mcp` (still supported).

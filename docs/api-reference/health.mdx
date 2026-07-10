@@ -1,0 +1,36 @@
+---
+title: Health check
+api: GET /api/health
+authMethod: none
+description: Liveness probe for the CostMCP API.
+---
+
+Returns service identity. No authentication required.
+
+<ResponseField name="ok" type="boolean" required>
+  Always `true` when the process is healthy
+</ResponseField>
+
+<ResponseField name="service" type="string" required>
+  `"costmcp-api"`
+</ResponseField>
+
+<ResponseField name="version" type="string" required>
+  API package version (e.g. `"0.0.1"`)
+</ResponseField>
+
+<RequestExample>
+```bash
+curl https://api.costmcp.com/api/health
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "ok": true,
+  "service": "costmcp-api",
+  "version": "0.0.1"
+}
+```
+</ResponseExample>

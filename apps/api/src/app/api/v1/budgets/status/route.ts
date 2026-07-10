@@ -22,11 +22,17 @@ export async function GET(request: NextRequest) {
 
     if (budgetError) throw budgetError;
 
-    const { data: spendRows, error: spendError } = await client
+    let spendQuery = client
       .from("cost_messages")
       .select("amount_usd, project_id")
       .eq("workspace_id", auth.workspaceId)
       .gte("created_at", start.toISOString());
+
+    if (auth.projectId) {
+      spendQuery = spendQuery.eq("project_id", auth.projectId);
+    }
+
+    const { data: spendRows, error: spendError } = await spendQuery;
 
     if (spendError) throw spendError;
 
@@ -37,7 +43,12 @@ export async function GET(request: NextRequest) {
       spentByScope.set(key, (spentByScope.get(key) ?? 0) + Number(row.amount_usd ?? 0));
     }
 
-    const statuses = (budgets ?? []).map((budget) => {
+    const scopedBudgets = (budgets ?? []).filter((budget) => {
+      if (!auth.projectId) return true;
+      return budget.scope_type === "workspace" || budget.scope_id === auth.projectId;
+    });
+
+    const statuses = scopedBudgets.map((budget) => {
       const spent = budget.scope_id
         ? (spentByScope.get(budget.scope_id as string) ?? 0)
         : (spendRows ?? []).reduce((s, r) => s + Number(r.amount_usd ?? 0), 0);

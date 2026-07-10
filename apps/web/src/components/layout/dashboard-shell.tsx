@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
+import Image from "next/image";
 import Link from "next/link";
 
 type Workspace = {
@@ -22,7 +23,15 @@ export function DashboardShell({
     <div className="dashboard">
       <header className="dashboard-topbar">
         <Link href="/dashboard" className="dashboard-topbar__brand">
-          CostMCP
+          <Image
+            src="/logo.png"
+            alt=""
+            width={24}
+            height={24}
+            className="dashboard-topbar__logo"
+            priority
+          />
+          <span>CostMCP</span>
         </Link>
         <WorkspaceSwitcher workspaces={workspaces} currentSlug={currentSlug} />
         <div className="dashboard-topbar__actions">

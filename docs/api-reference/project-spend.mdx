@@ -1,0 +1,73 @@
+---
+title: Project spend
+api: GET /api/v1/projects/{slug}/spend
+description: Drill into a project's ledger with optional date range.
+---
+
+Requires permission `read_summaries`. Returns up to **500** messages, newest first.
+
+<ParamField path="slug" type="string" required>
+  Project slug
+</ParamField>
+
+<ParamField query="from" type="string">
+  ISO datetime lower bound (inclusive)
+</ParamField>
+
+<ParamField query="to" type="string">
+  ISO datetime upper bound (inclusive)
+</ParamField>
+
+<ResponseField name="project" type="object" required>
+  `{ slug, name, budget }`
+</ResponseField>
+
+<ResponseField name="total_usd" type="number" required>
+  Sum for the filtered window
+</ResponseField>
+
+<ResponseField name="message_count" type="number" required>
+  Count of returned messages
+</ResponseField>
+
+<ResponseField name="messages" type="array" required>
+  Ledger rows with `id`, `message_type`, `amount_usd`, `unit_type`, `quantity`, `feature`, `batch_id`, `created_at`
+</ResponseField>
+
+| Status | Meaning |
+|--------|---------|
+| `404` | Project not found in workspace |
+| `500` | Query failure |
+
+<RequestExample>
+```bash
+curl "https://api.costmcp.com/api/v1/projects/slideshow-studio/spend?from=2026-07-01T00:00:00Z" \
+  -H "Authorization: Bearer $COSTMCP_API_KEY"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "project": {
+    "slug": "slideshow-studio",
+    "name": "Slideshow Studio",
+    "budget": 200
+  },
+  "total_usd": 28.2,
+  "message_count": 40,
+  "messages": [
+    {
+      "id": "uuid",
+      "message_type": "usage",
+      "amount_usd": 0.04,
+      "unit_type": "image",
+      "quantity": 1,
+      "feature": "slide_generation",
+      "batch_id": null,
+      "created_at": "2026-07-09T21:48:21.437Z"
+    }
+  ]
+}
+```
+</ResponseExample>

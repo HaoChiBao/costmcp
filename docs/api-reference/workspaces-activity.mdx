@@ -1,0 +1,50 @@
+---
+title: Workspace activity
+api: GET /api/v1/workspaces/{slug}/activity
+description: Transaction feed for the spend dashboard.
+---
+
+Requires Supabase JWT + workspace membership.
+
+<ParamField path="slug" type="string" required>
+  Workspace slug
+</ParamField>
+
+<ParamField query="period" type="string">
+  Same values as metrics (`day`…`all`, default `month`)
+</ParamField>
+
+<ParamField query="project" type="string">
+  Project slug filter
+</ParamField>
+
+<ParamField query="type" type="string">
+  Message type filter
+</ParamField>
+
+<ParamField query="environment" type="string">
+  Environment filter
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Default `25`, max `100`
+</ParamField>
+
+<ResponseField name="period" type="string" required>
+  Echo of period
+</ResponseField>
+
+<ResponseField name="count" type="number" required>
+  Number of activity rows returned
+</ResponseField>
+
+<ResponseField name="activity" type="array" required>
+  Rows with `id`, `amount_usd`, `message_type`, `created_at`, `project_slug`, `project_name`, `environment`, `feature`, `source`, `label`
+</ResponseField>
+
+<RequestExample>
+```bash
+curl "https://api.costmcp.com/api/v1/workspaces/acme-ai/activity?period=week&limit=25" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+</RequestExample>

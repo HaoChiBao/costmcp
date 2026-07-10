@@ -6,6 +6,7 @@ AI-native cost ledger for builders — track tokens, generations, subscriptions,
 
 ## Docs
 
+- **Public docs (Mintlify):** [`docs/`](./docs) — API, MCP, OAuth (`npx mint dev` from `docs/`)
 - [Product Spec (Notion)](https://app.notion.com/p/395850bd5b0881e5a813f59ee8bc3833)
 - [Technical Architecture (Notion)](https://app.notion.com/p/395850bd5b0881e29ddbca6dbdc4fd34)
 - [Linear Project](https://linear.app/yangspace/project/costmcp-a81bdc4b3531)
@@ -18,7 +19,7 @@ Migrations applied:
 - `initial_schema` — tables + seed data
 - `rls_policies` — RLS + global budget
 
-Local env: copy `.env.example` → `apps/api/.env.local` (or use the generated `.env.local` if present).
+Local env: copy `.env.example` → `.env` at the repo root (apps symlink to it).
 
 ```bash
 pnpm db:migrate   # requires `npx supabase login` + linked project
@@ -29,11 +30,11 @@ pnpm db:types     # regenerate types from remote schema
 
 ```bash
 pnpm install
-cp .env.example .env.local
+cp .env.example .env
 # Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, COSTMCP_API_KEY
 
 pnpm db:migrate   # requires Supabase CLI linked
-pnpm dev          # API at http://localhost:3000
+pnpm dev          # API at http://localhost:3000 · web at http://localhost:3001
 pnpm mcp:dev      # MCP server (stdio)
 ```
 
@@ -80,14 +81,27 @@ costmcp/
 └── examples/
 ```
 
-## MCP tools
+## MCP
 
-- `log_usage` — record usage events
-- `add_expense` — log purchases
-- `get_project_spend` — project breakdown
-- `get_budget_status` — budget remaining
+| | URL / path |
+|--|------------|
+| **Production (agents)** | `https://mcp.costmcp.com` |
+| Local stdio | `pnpm mcp:dev` (`packages/mcp-server`) |
+| Local HTTP | `http://localhost:3000/api/mcp` |
 
-See `examples/cursor-mcp-config.json` for Cursor setup.
+Tools: `log_usage`, `add_expense`, `get_project_spend`, `get_budget_status`, `get_monthly_summary` (remote only).
+
+```json
+{
+  "mcpServers": {
+    "costmcp": {
+      "url": "https://mcp.costmcp.com"
+    }
+  }
+}
+```
+
+See `examples/cursor-mcp-config.json` (stdio) and [docs/mcp](./docs/mcp) for full setup.
 
 ## License
 

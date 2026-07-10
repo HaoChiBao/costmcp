@@ -1,6 +1,11 @@
 import { createServiceClient, findProjectBySlug, getMonthlySpend } from "@costmcp/db";
 import { parseCostMessage } from "@costmcp/core";
-import { persistCostMessage, requirePermission } from "@/lib/auth";
+import {
+  assertProjectAccess,
+  filterSummaryByPolicy,
+  persistCostMessage,
+  requirePermission,
+} from "@/lib/auth";
 import type { McpAuthContext } from "@/lib/mcp/auth";
 
 export interface McpTool {
@@ -13,6 +18,13 @@ export interface McpTool {
 
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
+
+function throwIfDenied(res: Response | null): void {
+  if (!res) return;
+  throw new McpToolError(
+    res.status === 403 ? "Forbidden by API key conditions" : `Request failed (${res.status})`,
+  );
+}
 
 export const MCP_TOOLS: McpTool[] = [
   {
@@ -52,7 +64,12 @@ export const MCP_TOOLS: McpTool[] = [
           batch_id: str(args.batch_id),
         },
       });
-      return persistCostMessage(ctx, envelope);
+      try {
+        return await persistCostMessage(ctx, envelope);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to log usage";
+        throw new McpToolError(message);
+      }
     },
   },
   {
@@ -84,7 +101,12 @@ export const MCP_TOOLS: McpTool[] = [
           notes: str(args.notes),
         },
       });
-      return persistCostMessage(ctx, envelope);
+      try {
+        return await persistCostMessage(ctx, envelope);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to add expense";
+        throw new McpToolError(message);
+      }
     },
   },
   {
@@ -104,7 +126,9 @@ export const MCP_TOOLS: McpTool[] = [
       const client = createServiceClient();
       const slug = str(args.project) ?? "";
       const project = await findProjectBySlug(client, ctx.workspaceId, slug);
-      if (!project) throw new Error("Project not found");
+      if (!project) throw new McpToolError("Project not found");
+
+      throwIfDenied(assertProjectAccess(ctx, project));
 
       let query = client
         .from("cost_messages")
@@ -147,11 +171,17 @@ export const MCP_TOOLS: McpTool[] = [
         .eq("workspace_id", ctx.workspaceId);
       if (budgetError) throw budgetError;
 
-      const { data: spendRows, error: spendError } = await client
+      let spendQuery = client
         .from("cost_messages")
         .select("amount_usd, project_id")
         .eq("workspace_id", ctx.workspaceId)
         .gte("created_at", start.toISOString());
+
+      if (ctx.projectId) {
+        spendQuery = spendQuery.eq("project_id", ctx.projectId);
+      }
+
+      const { data: spendRows, error: spendError } = await spendQuery;
       if (spendError) throw spendError;
 
       const spentByScope = new Map<string, number>();
@@ -162,8 +192,13 @@ export const MCP_TOOLS: McpTool[] = [
       }
 
       const totalSpent = (spendRows ?? []).reduce((s, r) => s + Number(r.amount_usd ?? 0), 0);
+      const scopedBudgets = (budgets ?? []).filter((budget) => {
+        if (!ctx.projectId) return true;
+        return budget.scope_type === "workspace" || budget.scope_id === ctx.projectId;
+      });
+
       return {
-        budgets: (budgets ?? []).map((budget) => {
+        budgets: scopedBudgets.map((budget) => {
           const spent = budget.scope_id
             ? (spentByScope.get(budget.scope_id as string) ?? 0)
             : totalSpent;
@@ -189,7 +224,8 @@ export const MCP_TOOLS: McpTool[] = [
     inputSchema: { type: "object", properties: {} },
     handler: async (ctx) => {
       const client = createServiceClient();
-      const rows = await getMonthlySpend(client, ctx.workspaceId);
+      const allRows = await getMonthlySpend(client, ctx.workspaceId);
+      const rows = filterSummaryByPolicy(ctx, allRows);
       const sum = (pred: (t: string) => boolean) =>
         rows.filter((r) => pred(r.message_type)).reduce((s, r) => s + Number(r.amount_usd ?? 0), 0);
 
