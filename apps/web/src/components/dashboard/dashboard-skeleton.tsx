@@ -4,13 +4,16 @@ export function DashboardSkeleton() {
   return (
     <div className="activity-page spend-dashboard--skeleton" aria-busy="true" aria-live="polite">
       <header className="activity-page__header">
-        <div>
-          <div className="skeleton-block skeleton-block--title" style={{ width: "6rem", height: "1.5rem" }} />
-          <div className="skeleton-block skeleton-block--line" style={{ width: "14rem", marginTop: "var(--spacing-8)" }} />
+        <div className="activity-page__header-row">
+          <div className="skeleton-block skeleton-block--title" style={{ width: "5.5rem", height: "1.25rem" }} />
+          <div className="skeleton-row" style={{ width: "18rem", gap: "6px" }}>
+            <div className="skeleton-block skeleton-block--stat" style={{ height: "2rem" }} />
+            <div className="skeleton-block skeleton-block--stat" style={{ height: "2rem" }} />
+          </div>
         </div>
-        <div className="skeleton-row" style={{ width: "16rem" }}>
-          <div className="skeleton-block skeleton-block--stat" />
-          <div className="skeleton-block skeleton-block--stat" />
+        <div>
+          <div className="skeleton-block skeleton-block--amount" style={{ width: "8rem", height: "2rem" }} />
+          <div className="skeleton-block skeleton-block--line" style={{ width: "12rem", marginTop: "var(--spacing-8)" }} />
         </div>
       </header>
 
@@ -21,11 +24,10 @@ export function DashboardSkeleton() {
             <div className="skeleton-block skeleton-block--line" />
             <div className="skeleton-block skeleton-block--line" />
             <div className="skeleton-block skeleton-block--line" />
-            <div className="skeleton-block skeleton-block--line" />
           </div>
         </div>
         <aside className="activity-page__detail">
-          <div className="skeleton-block skeleton-block--amount" style={{ width: "70%", height: "2rem" }} />
+          <div className="skeleton-block skeleton-block--amount" style={{ width: "70%", height: "1.75rem" }} />
           <div className="skeleton-stack" style={{ marginTop: "var(--spacing-24)" }}>
             <div className="skeleton-block skeleton-block--line" />
             <div className="skeleton-block skeleton-block--line" />

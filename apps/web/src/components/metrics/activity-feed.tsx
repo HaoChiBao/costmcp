@@ -1,8 +1,16 @@
 "use client";
 
 import { formatUsd } from "@/lib/metrics";
+import { formatActivityDisplay } from "@/lib/activity-display";
 import { messageTypeTone } from "@/lib/org-colors";
 import type { LedgerRow } from "@/components/metrics/ledger-table";
+
+export type ActivityRow = LedgerRow & {
+  occurredAt: string;
+  displayTitle?: string;
+  displayMeta?: string;
+  displayInitial?: string;
+};
 
 function groupLabelForDate(iso: string) {
   const date = new Date(iso);
@@ -11,19 +19,13 @@ function groupLabelForDate(iso: string) {
   startOfWeek.setDate(now.getDate() - now.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
 
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
   if (date >= startOfWeek) return "This week";
-
-  if (date >= startOfMonth) {
-    return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(date);
-  }
 
   return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(date);
 }
 
-function groupRows(rows: Array<LedgerRow & { occurredAt: string }>) {
-  const groups: Array<{ label: string; items: typeof rows }> = [];
+function groupRows(rows: ActivityRow[]) {
+  const groups: Array<{ label: string; items: ActivityRow[] }> = [];
   let currentLabel: string | null = null;
 
   for (const row of rows) {
@@ -39,9 +41,20 @@ function groupRows(rows: Array<LedgerRow & { occurredAt: string }>) {
   return groups;
 }
 
-function vendorInitial(label: string) {
-  const trimmed = label.trim();
-  return trimmed ? trimmed.charAt(0).toUpperCase() : "?";
+function resolveDisplay(row: ActivityRow) {
+  if (row.displayTitle && row.displayMeta) {
+    return {
+      title: row.displayTitle,
+      subtitle: row.displayMeta,
+      initial: row.displayInitial ?? row.displayTitle.charAt(0).toUpperCase(),
+    };
+  }
+
+  return formatActivityDisplay({
+    label: row.label,
+    messageType: row.tag,
+    projectName: row.meta,
+  });
 }
 
 export function ActivityFeed({
@@ -50,7 +63,7 @@ export function ActivityFeed({
   onSelect,
   empty = "No transactions this period.",
 }: {
-  rows: Array<LedgerRow & { occurredAt: string }>;
+  rows: ActivityRow[];
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   empty?: string;
@@ -69,7 +82,9 @@ export function ActivityFeed({
           <ul className="activity-feed__list">
             {group.items.map((row) => {
               const tone = messageTypeTone(row.tag);
+              const display = resolveDisplay(row);
               const isSelected = row.id === selectedId;
+
               return (
                 <li key={row.id}>
                   <button
@@ -83,18 +98,17 @@ export function ActivityFeed({
                       style={{ backgroundColor: tone.bg, color: tone.color }}
                       aria-hidden="true"
                     >
-                      {vendorInitial(row.label)}
+                      {display.initial}
                     </span>
                     <span className="activity-row__body">
-                      <span className="activity-row__label">{row.label}</span>
-                      <span className="activity-row__meta">
-                        {row.meta ?? tone.label}
-                        {row.tag ? ` · ${tone.label}` : ""}
-                      </span>
+                      <span className="activity-row__label">{display.title}</span>
+                      <span className="activity-row__meta">{display.subtitle}</span>
                     </span>
-                    <span className="activity-row__date">{row.date}</span>
-                    <span className="activity-row__amount tabular-nums">
-                      {formatUsd(row.amount_usd)}
+                    <span className="activity-row__trailing">
+                      <span className="activity-row__date">{row.date}</span>
+                      <span className="activity-row__amount tabular-nums">
+                        {formatUsd(row.amount_usd)}
+                      </span>
                     </span>
                   </button>
                 </li>

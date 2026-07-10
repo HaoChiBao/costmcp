@@ -10,7 +10,7 @@ import {
   type WorkspaceMetrics,
   PERIODS,
   buildSpendQuery,
-  formatDeltaPercent,
+  formatComparisonLine,
   formatUsd,
   normalizeWorkspaceMetrics,
 } from "@/lib/metrics";
@@ -27,8 +27,8 @@ import { ActivityFeed } from "@/components/metrics/activity-feed";
 import { SpendFiltersBar } from "@/components/metrics/spend-filters-bar";
 import { SpendChart } from "@/components/metrics/spend-chart";
 import { TransactionDetail } from "@/components/metrics/transaction-detail";
-import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { formatActivityDisplay, formatActivityRowDate } from "@/lib/activity-display";
 import type { OrgTree } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
@@ -53,11 +53,7 @@ function resolveCategorySlug(org: OrgTree, value: string | null | undefined) {
 }
 
 function formatActivityDate(iso: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(iso));
+  return formatActivityRowDate(iso);
 }
 
 function toDatetimeLocalValue(iso: string) {
@@ -96,9 +92,7 @@ function ActivitySummary({ metrics }: { metrics: WorkspaceMetrics }) {
     <div className="activity-summary">
       <h3 className="activity-summary__title">Period summary</h3>
       <p className="activity-summary__amount tabular-nums">{formatUsd(metrics.total_usd)}</p>
-      <p className="text-muted" style={{ fontSize: "13px", margin: 0 }}>
-        {metrics.period_label}
-      </p>
+      <p className="activity-summary__period">{metrics.period_label}</p>
       <dl className="activity-summary__stats">
         <div className="activity-summary__stat">
           <dt>Transactions</dt>
@@ -137,7 +131,7 @@ function ActivitySummary({ metrics }: { metrics: WorkspaceMetrics }) {
               />
             </div>
           </div>
-          <p className="text-muted" style={{ fontSize: "12px", marginTop: "var(--spacing-8)" }}>
+          <p className="activity-summary__budget-meta">
             {formatUsd(metrics.budget.spent)} of {formatUsd(metrics.budget.limit)} used
           </p>
         </div>
@@ -444,20 +438,33 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
   const editingRow = activity?.activity.find((row) => row.id === editingId) ?? null;
 
   const ledgerRows =
-    activity?.activity.map((row) => ({
-      id: row.id,
-      date: formatActivityDate(row.occurred_at ?? row.created_at),
-      occurredAt: row.occurred_at ?? row.created_at,
-      label: row.label,
-      meta: row.project_name,
-      projectSlug: row.project_slug,
-      tag: row.message_type,
-      amount_usd: row.amount_usd,
-      currency: row.currency,
-      amount_original: row.amount_original,
-      editable:
-        row.message_type === "expense" || row.message_type === "subscription",
-    })) ?? [];
+    activity?.activity.map((row) => {
+      const display = formatActivityDisplay({
+        label: row.label,
+        messageType: row.message_type,
+        projectName: row.project_name,
+        vendor: row.vendor,
+        feature: row.feature,
+      });
+
+      return {
+        id: row.id,
+        date: formatActivityDate(row.occurred_at ?? row.created_at),
+        occurredAt: row.occurred_at ?? row.created_at,
+        label: row.label,
+        displayTitle: display.title,
+        displayMeta: display.subtitle,
+        displayInitial: display.initial,
+        meta: row.project_name,
+        projectSlug: row.project_slug,
+        tag: row.message_type,
+        amount_usd: row.amount_usd,
+        currency: row.currency,
+        amount_original: row.amount_original,
+        editable:
+          row.message_type === "expense" || row.message_type === "subscription",
+      };
+    }) ?? [];
 
   const selectedRow = ledgerRows.find((row) => row.id === selectedId) ?? null;
 
@@ -488,6 +495,8 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
   if (!metrics) return null;
 
   const hasActiveFilters = Boolean(filters.project || filters.environment || filters.vendor);
+  const comparisonLine =
+    comparison && period !== "all" ? formatComparisonLine(comparison) : null;
 
   return (
     <div
@@ -501,98 +510,106 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
       ) : null}
 
       <header className="activity-page__header">
-        <div>
+        <div className="activity-page__header-row">
           <h1 className="activity-page__title">Activity</h1>
-          <p className="activity-page__summary">
-            <strong className="tabular-nums">{formatUsd(metrics.total_usd)}</strong>
-            {" · "}
-            {metrics.period_label}
-            {" · "}
-            {workspaceName}
-          </p>
-          {comparison && period !== "all" ? (
-            <p
-              className={`activity-page__delta tabular-nums${
-                comparison.delta_percent != null && comparison.delta_percent > 0
-                  ? " activity-page__delta--up"
-                  : comparison.delta_percent != null && comparison.delta_percent < 0
-                    ? " activity-page__delta--down"
-                    : ""
-              }`}
-            >
-              {formatDeltaPercent(comparison.delta_percent)} vs{" "}
-              {comparison.previous.period_label.toLowerCase()}
-            </p>
-          ) : null}
+
+          <div className="activity-page__controls">
+            <div className="period-pills" role="tablist" aria-label="Time period">
+              {PERIODS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={period === p.id}
+                  className={`period-pill${period === p.id ? " period-pill--active" : ""}${refreshing && period === p.id ? " period-pill--loading" : ""}`}
+                  onClick={() => applyPeriod(p.id)}
+                  disabled={refreshing && period === p.id}
+                >
+                  {refreshing && period === p.id ? <Spinner size={14} /> : p.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="activity-page__actions">
+              <button
+                type="button"
+                className={`dash-btn dash-btn--icon${showFilters || hasActiveFilters ? " dash-btn--active" : ""}`}
+                onClick={() => setShowFilters((open) => !open)}
+                aria-label="Filters"
+                aria-expanded={showFilters}
+              >
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path
+                    d="M8 14a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"
+                    stroke="currentColor"
+                    strokeWidth="1.25"
+                  />
+                  <path
+                    d="m13 13 2.5 2.5"
+                    stroke="currentColor"
+                    strokeWidth="1.25"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="dash-btn dash-btn--ghost"
+                disabled={refreshing || exporting}
+                onClick={() => void exportCsv()}
+              >
+                {exporting ? "Exporting…" : "Export"}
+              </button>
+              <button
+                type="button"
+                className={`dash-btn${composer === "expense" ? " dash-btn--active" : ""}`}
+                onClick={() => {
+                  setEditingId(null);
+                  setComposer((c) => (c === "expense" ? null : "expense"));
+                }}
+              >
+                {composer === "expense" ? "Close" : "Add expense"}
+              </button>
+              <button
+                type="button"
+                className={`dash-btn dash-btn--primary${composer === "subscription" ? " dash-btn--active" : ""}`}
+                onClick={() => {
+                  setEditingId(null);
+                  setComposer((c) => (c === "subscription" ? null : "subscription"));
+                }}
+              >
+                {composer === "subscription" ? "Close" : "Add subscription"}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="activity-page__toolbar">
-          <div className="period-pills" role="tablist" aria-label="Time period">
-            {PERIODS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                role="tab"
-                aria-selected={period === p.id}
-                className={`period-pill${period === p.id ? " period-pill--active" : ""}${refreshing && period === p.id ? " period-pill--loading" : ""}`}
-                onClick={() => applyPeriod(p.id)}
-                disabled={refreshing && period === p.id}
-              >
-                {refreshing && period === p.id ? <Spinner size={14} /> : p.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="activity-page__toolbar-actions">
-            <button
-              type="button"
-              className={`activity-page__icon-btn${showFilters || hasActiveFilters ? " activity-page__icon-btn--active" : ""}`}
-              onClick={() => setShowFilters((open) => !open)}
-              aria-label="Filters"
-              aria-expanded={showFilters}
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                <path
-                  d="M8 14a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"
-                  stroke="currentColor"
-                  strokeWidth="1.25"
-                />
-                <path
-                  d="m13 13 2.5 2.5"
-                  stroke="currentColor"
-                  strokeWidth="1.25"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={refreshing || exporting}
-              onClick={() => void exportCsv()}
-            >
-              {exporting ? "Exporting…" : "Export"}
-            </Button>
-            <Button
-              type="button"
-              variant={composer === "expense" ? "ghost" : "default"}
-              onClick={() => {
-                setEditingId(null);
-                setComposer((c) => (c === "expense" ? null : "expense"));
-              }}
-            >
-              {composer === "expense" ? "Close" : "+ Expense"}
-            </Button>
-            <Button
-              type="button"
-              variant={composer === "subscription" ? "ghost" : "default"}
-              onClick={() => {
-                setEditingId(null);
-                setComposer((c) => (c === "subscription" ? null : "subscription"));
-              }}
-            >
-              {composer === "subscription" ? "Close" : "+ Subscription"}
-            </Button>
+        <div className="activity-page__metrics">
+          <p className="activity-page__amount tabular-nums">{formatUsd(metrics.total_usd)}</p>
+          <div className="activity-page__metrics-meta">
+            <span>{metrics.period_label}</span>
+            <span className="activity-page__metrics-sep" aria-hidden="true">
+              ·
+            </span>
+            <span>{workspaceName}</span>
+            {comparisonLine ? (
+              <>
+                <span className="activity-page__metrics-sep" aria-hidden="true">
+                  ·
+                </span>
+                <span
+                  className={`activity-page__delta tabular-nums${
+                    comparison && comparison.delta_usd > 0
+                      ? " activity-page__delta--up"
+                      : comparison && comparison.delta_usd < 0
+                        ? " activity-page__delta--down"
+                        : ""
+                  }`}
+                >
+                  {comparisonLine}
+                </span>
+              </>
+            ) : null}
           </div>
         </div>
       </header>

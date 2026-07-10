@@ -103,6 +103,7 @@ export type ActivityResponse = {
     occurred_at?: string;
     project_slug: string | null;
     project_name: string | null;
+    feature?: string | null;
     label: string;
     source?: string;
     vendor?: string | null;
@@ -178,6 +179,26 @@ export function formatDeltaPercent(delta: number | null) {
   const pct = Math.round(Math.abs(delta) * 100);
   if (pct === 0) return "0%";
   return `${delta > 0 ? "+" : "-"}${pct}%`;
+}
+
+export function formatComparisonLine(comparison: MetricsComparison) {
+  const period = comparison.previous.period_label.toLowerCase();
+  const { delta_percent, delta_usd } = comparison;
+
+  if (delta_usd === 0 && (delta_percent == null || delta_percent === 0)) {
+    return null;
+  }
+
+  const useAbsolute =
+    comparison.previous.total_usd < 1 ||
+    (delta_percent != null && Math.abs(delta_percent) > 2);
+
+  if (useAbsolute) {
+    const sign = delta_usd > 0 ? "+" : delta_usd < 0 ? "−" : "";
+    return `${sign}${formatUsd(Math.abs(delta_usd))} vs ${period}`;
+  }
+
+  return `${formatDeltaPercent(delta_percent)} vs ${period}`;
 }
 
 export const PERIODS: Array<{ id: Period; label: string }> = [
