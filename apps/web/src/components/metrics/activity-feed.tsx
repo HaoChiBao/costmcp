@@ -100,15 +100,11 @@ export function ActivityFeed({
                     >
                       {display.initial}
                     </span>
-                    <span className="activity-row__body">
-                      <span className="activity-row__label">{display.title}</span>
-                      <span className="activity-row__meta">{display.subtitle}</span>
-                    </span>
-                    <span className="activity-row__trailing">
-                      <span className="activity-row__date">{row.date}</span>
-                      <span className="activity-row__amount tabular-nums">
-                        {formatUsd(row.amount_usd)}
-                      </span>
+                    <span className="activity-row__label">{display.title}</span>
+                    <span className="activity-row__meta">{display.subtitle}</span>
+                    <span className="activity-row__date">{row.date}</span>
+                    <span className="activity-row__amount tabular-nums">
+                      {formatUsd(row.amount_usd)}
                     </span>
                   </button>
                 </li>

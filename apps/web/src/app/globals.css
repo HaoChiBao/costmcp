@@ -2619,14 +2619,14 @@ a {
 }
 
 .activity-feed__group + .activity-feed__group {
-  margin-top: var(--spacing-28);
+  margin-top: var(--spacing-20);
 }
 
 .activity-feed__group-label {
   font-size: 12px;
   font-weight: var(--font-weight-regular);
   color: var(--color-ash);
-  margin: 0 0 var(--spacing-8);
+  margin: 0 0 var(--spacing-4);
   padding: 0 var(--spacing-4);
 }
 
@@ -2638,14 +2638,15 @@ a {
 
 .activity-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 0.9fr) minmax(0, 1.4fr) auto auto;
   align-items: center;
   gap: var(--spacing-12);
   width: 100%;
-  padding: 10px var(--spacing-8);
+  min-height: 32px;
+  padding: 4px var(--spacing-8);
   margin: 0 calc(var(--spacing-8) * -1);
   border: 0;
-  border-radius: var(--dash-radius);
+  border-radius: 8px;
   background: transparent;
   text-align: left;
   cursor: pointer;
@@ -2666,57 +2667,49 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  font-size: 11px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-size: 10px;
   font-weight: var(--font-weight-regular);
   flex-shrink: 0;
+  line-height: 1;
 }
 
-.activity-row__body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.activity-row__label,
+.activity-row__meta,
+.activity-row__date,
+.activity-row__amount {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .activity-row__label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: var(--font-weight-regular);
   color: var(--color-headline-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .activity-row__meta {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ash);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.activity-row__trailing {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  flex-shrink: 0;
 }
 
 .activity-row__date {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ash);
-  white-space: nowrap;
+  text-align: right;
 }
 
 .activity-row__amount {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 300;
   color: var(--color-headline-ink);
-  white-space: nowrap;
+  text-align: right;
+  min-width: 4.5rem;
 }
 
 /* Transaction detail panel */
@@ -4659,8 +4652,14 @@ a {
     padding: var(--spacing-24) var(--spacing-16);
   }
 
-  .activity-row__trailing {
-    gap: 4px;
+  .activity-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--spacing-8);
+  }
+
+  .activity-row__meta,
+  .activity-row__date {
+    display: none;
   }
 
   .dashboard-sidebar {
