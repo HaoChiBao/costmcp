@@ -4346,6 +4346,16 @@ a {
   transition: opacity var(--transition-fast);
 }
 
+.spend-dashboard--background-refresh .activity-page__list,
+.spend-dashboard--background-refresh .activity-page__detail {
+  opacity: 1;
+}
+
+.activity-page__amount--pending {
+  opacity: 0.55;
+  transition: opacity var(--transition-fast);
+}
+
 .period-pill--loading {
   display: inline-flex;
   align-items: center;

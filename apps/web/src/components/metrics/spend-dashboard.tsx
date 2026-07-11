@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   type ActivityResponse,
@@ -12,7 +12,9 @@ import {
   buildSpendQuery,
   formatComparisonLine,
   formatUsd,
+  hasActiveSpendFilters,
   normalizeWorkspaceMetrics,
+  resolveDisplayActivity,
 } from "@/lib/metrics";
 import {
   clearMetricsCache,
@@ -27,7 +29,6 @@ import { ActivityFeed } from "@/components/metrics/activity-feed";
 import { SpendFiltersBar } from "@/components/metrics/spend-filters-bar";
 import { SpendChart } from "@/components/metrics/spend-chart";
 import { TransactionDetail } from "@/components/metrics/transaction-detail";
-import { Spinner } from "@/components/ui/spinner";
 import { formatActivityDisplay, formatActivityRowDate } from "@/lib/activity-display";
 import type { OrgTree } from "@/lib/api";
 
@@ -71,7 +72,7 @@ function toDateValue(iso: string) {
 function readCachedMetrics(workspaceSlug: string, period: Period, filters: SpendFilters) {
   const cached =
     getMetricsCache(workspaceSlug, period, filters) ??
-    (period === "month" && !filtersKeyActive(filters)
+    (period === "month" && !hasActiveSpendFilters(filters)
       ? getLatestMetricsForWorkspace(workspaceSlug)
       : undefined);
 
@@ -81,10 +82,6 @@ function readCachedMetrics(workspaceSlug: string, period: Period, filters: Spend
     metrics: normalizeWorkspaceMetrics(cached.metrics),
     activity: cached.activity,
   };
-}
-
-function filtersKeyActive(filters: SpendFilters) {
-  return Boolean(filters.project || filters.environment || filters.vendor || filters.type);
 }
 
 function ActivitySummary({ metrics }: { metrics: WorkspaceMetrics }) {
@@ -162,28 +159,31 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [, startTransition] = useTransition();
 
   function applyPeriod(next: Period) {
     if (next === period) return;
     const cached = readCachedMetrics(workspaceSlug, next, filters);
-    if (cached) {
-      setMetrics(cached.metrics);
-      setActivity(cached.activity);
-      setInitialLoad(false);
-    }
-    setPeriod(next);
-    setSelectedId(null);
+    startTransition(() => {
+      if (cached) {
+        setMetrics(cached.metrics);
+        setActivity(cached.activity);
+        setInitialLoad(false);
+      }
+      setPeriod(next);
+    });
   }
 
   function applyFilters(next: SpendFilters) {
     const cached = readCachedMetrics(workspaceSlug, period, next);
-    if (cached) {
-      setMetrics(cached.metrics);
-      setActivity(cached.activity);
-      setInitialLoad(false);
-    }
-    setFilters(next);
-    setSelectedId(null);
+    startTransition(() => {
+      if (cached) {
+        setMetrics(cached.metrics);
+        setActivity(cached.activity);
+        setInitialLoad(false);
+      }
+      setFilters(next);
+    });
   }
 
   const refreshOrg = useCallback(async () => {
@@ -226,15 +226,11 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
       setInitialLoad(false);
     } else if (reloadToken === 0) {
       const fallback =
-        !filtersKeyActive(filters) ? getLatestMetricsForWorkspace(workspaceSlug) : undefined;
+        !hasActiveSpendFilters(filters) ? getLatestMetricsForWorkspace(workspaceSlug) : undefined;
       if (fallback) {
         setMetrics(normalizeWorkspaceMetrics(fallback.metrics));
         setActivity(fallback.activity);
         setInitialLoad(false);
-      } else {
-        setMetrics(null);
-        setActivity(null);
-        setInitialLoad(true);
       }
     }
 
@@ -434,10 +430,27 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
     }
   }
 
-  const editingRow = activity?.activity.find((row) => row.id === editingId) ?? null;
+  const sourceActivity = useMemo(() => {
+    if (hasActiveSpendFilters(filters)) {
+      return getMetricsCache(workspaceSlug, period, {})?.activity ?? activity;
+    }
+    return activity;
+  }, [workspaceSlug, period, filters, activity]);
+
+  const displayActivity = useMemo(
+    () =>
+      resolveDisplayActivity(sourceActivity, filters, org.vendors, activity, refreshing),
+    [sourceActivity, filters, org.vendors, activity, refreshing],
+  );
+
+  const hasExactFilterCache = Boolean(getMetricsCache(workspaceSlug, period, filters));
+  const backgroundRefresh = refreshing && metrics !== null;
+  const metricsPending = backgroundRefresh && hasActiveSpendFilters(filters) && !hasExactFilterCache;
+
+  const editingRow = displayActivity?.activity.find((row) => row.id === editingId) ?? null;
 
   const ledgerRows =
-    activity?.activity.map((row) => {
+    displayActivity?.activity.map((row) => {
       const display = formatActivityDisplay({
         label: row.label,
         messageType: row.message_type,
@@ -500,10 +513,10 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
 
   return (
     <div
-      className={`activity-page${refreshing ? " spend-dashboard--refreshing" : ""}`}
+      className={`activity-page${backgroundRefresh ? " spend-dashboard--background-refresh" : ""}`}
       aria-busy={refreshing}
     >
-      {refreshing ? (
+      {backgroundRefresh ? (
         <div className="dashboard-progress" aria-hidden="true">
           <div className="dashboard-progress__bar" />
         </div>
@@ -521,11 +534,10 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
                   type="button"
                   role="tab"
                   aria-selected={period === p.id}
-                  className={`period-pill${period === p.id ? " period-pill--active" : ""}${refreshing && period === p.id ? " period-pill--loading" : ""}`}
+                  className={`period-pill${period === p.id ? " period-pill--active" : ""}`}
                   onClick={() => applyPeriod(p.id)}
-                  disabled={refreshing && period === p.id}
                 >
-                  {refreshing && period === p.id ? <Spinner size={14} /> : p.label}
+                  {p.label}
                 </button>
               ))}
             </div>
@@ -534,7 +546,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
               <button
                 type="button"
                 className="dash-btn dash-btn--ghost"
-                disabled={refreshing || exporting}
+                disabled={exporting}
                 onClick={() => void exportCsv()}
               >
                 {exporting ? "Exporting…" : "Export"}
@@ -564,7 +576,11 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
         </div>
 
         <div className="activity-page__metrics">
-          <p className="activity-page__amount tabular-nums">{formatUsd(metrics.total_usd)}</p>
+          <p
+            className={`activity-page__amount tabular-nums${metricsPending ? " activity-page__amount--pending" : ""}`}
+          >
+            {formatUsd(metrics.total_usd)}
+          </p>
           <div className="activity-page__metrics-meta">
             <span>{metrics.period_label}</span>
             <span className="activity-page__metrics-sep" aria-hidden="true">
@@ -596,7 +612,6 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
           org={org}
           filters={filters}
           onChange={applyFilters}
-          disabled={refreshing}
         />
       </header>
 

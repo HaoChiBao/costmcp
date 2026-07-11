@@ -103,6 +103,7 @@ export type ActivityResponse = {
     occurred_at?: string;
     project_slug: string | null;
     project_name: string | null;
+    environment?: string | null;
     feature?: string | null;
     label: string;
     source?: string;
@@ -179,6 +180,64 @@ export function filtersKey(filters: SpendFilters) {
   return [filters.project ?? "", filters.environment ?? "", filters.vendor ?? "", filters.type ?? ""].join(
     "|",
   );
+}
+
+export function hasActiveSpendFilters(filters: SpendFilters) {
+  return Boolean(filters.project || filters.environment || filters.vendor || filters.type);
+}
+
+type ActivityItem = ActivityResponse["activity"][number];
+
+export function filterActivityClient(
+  rows: ActivityItem[],
+  filters: SpendFilters,
+  vendors: Array<{ slug: string; name: string }> = [],
+): ActivityItem[] {
+  if (!hasActiveSpendFilters(filters)) return rows;
+
+  const vendorSlug = filters.vendor?.toLowerCase();
+  const vendorName = vendorSlug
+    ? vendors.find((vendor) => vendor.slug === filters.vendor)?.name.toLowerCase()
+    : null;
+
+  return rows.filter((row) => {
+    if (filters.project && row.project_slug !== filters.project) return false;
+    if (filters.type && row.message_type !== filters.type) return false;
+    if (filters.environment && row.environment !== filters.environment) return false;
+    if (vendorSlug) {
+      const rowVendor = row.vendor?.toLowerCase() ?? "";
+      const provider =
+        typeof row.metadata?.provider === "string" ? row.metadata.provider.toLowerCase() : "";
+      const matchesVendor =
+        rowVendor === vendorSlug ||
+        rowVendor === vendorName ||
+        provider === vendorSlug;
+      if (!matchesVendor) return false;
+    }
+    return true;
+  });
+}
+
+export function resolveDisplayActivity(
+  activity: ActivityResponse | null,
+  filters: SpendFilters,
+  vendors: Array<{ slug: string; name: string }>,
+  serverActivity: ActivityResponse | null,
+  isRefreshing: boolean,
+): ActivityResponse | null {
+  if (!activity?.activity.length) return activity;
+
+  const hasFilters = hasActiveSpendFilters(filters);
+  if (!hasFilters) return serverActivity ?? activity;
+
+  if (serverActivity && !isRefreshing) return serverActivity;
+
+  const filtered = filterActivityClient(activity.activity, filters, vendors);
+  return {
+    ...activity,
+    count: filtered.length,
+    activity: filtered,
+  };
 }
 
 export function formatDeltaPercent(delta: number | null) {
