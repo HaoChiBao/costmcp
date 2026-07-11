@@ -15,7 +15,7 @@ export function DashboardLayoutShell({
   children,
 }: {
   workspaces: Workspace[];
-  user?: { name: string; email?: string };
+  user?: { name: string; email?: string; avatarUrl?: string | null };
   children: ReactNode;
 }) {
   const pathname = usePathname();

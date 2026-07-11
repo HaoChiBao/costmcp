@@ -15,6 +15,7 @@ export type MeResponse = {
   user: { id: string; email?: string };
   profile: {
     display_name: string | null;
+    avatar_url: string | null;
     default_workspace_id: string | null;
   } | null;
   workspaces: Array<{

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { Button } from "@/components/ui/button";
 import { FormError, FormField } from "@/components/ui/form-field";
 import { createClient } from "@/lib/supabase/client";
@@ -37,7 +38,13 @@ function LoginForm() {
         <p className="eyebrow">Account</p>
         <h1 className="auth-page__title">Sign in</h1>
         <p className="text-muted">Access your organized cost accounts.</p>
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <div className="auth-form">
+          <GoogleSignInButton next={next} />
+          <p className="auth-divider">
+            <span>or</span>
+          </p>
+        </div>
+        <form className="auth-form auth-form--tight" onSubmit={handleSubmit}>
           <FormField
             label="Email"
             type="email"

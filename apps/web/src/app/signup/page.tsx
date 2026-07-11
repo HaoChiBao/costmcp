@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { Button } from "@/components/ui/button";
 import { FormError, FormField } from "@/components/ui/form-field";
 import { createClient } from "@/lib/supabase/client";
@@ -40,7 +41,13 @@ export default function SignupPage() {
         <p className="eyebrow">New account</p>
         <h1 className="auth-page__title">Join CostMCP</h1>
         <p className="text-muted">One workspace with collections and categories, ready to go.</p>
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <div className="auth-form">
+          <GoogleSignInButton label="Sign up with Google" />
+          <p className="auth-divider">
+            <span>or</span>
+          </p>
+        </div>
+        <form className="auth-form auth-form--tight" onSubmit={handleSubmit}>
           <FormField
             label="Display name"
             type="text"

@@ -15,7 +15,7 @@ export default async function DashboardLayout({
   if (!session) redirect("/login");
 
   let workspaces: MeResponse["workspaces"] = [];
-  let user: { name: string; email?: string } | undefined;
+  let user: { name: string; email?: string; avatarUrl?: string | null } | undefined;
 
   try {
     const me = await apiFetch<MeResponse>("/api/v1/me", session.access_token);
@@ -23,6 +23,7 @@ export default async function DashboardLayout({
     user = {
       name: me.profile?.display_name ?? me.user.email?.split("@")[0] ?? "Account",
       email: me.user.email,
+      avatarUrl: me.profile?.avatar_url ?? null,
     };
   } catch {
     workspaces = [];
