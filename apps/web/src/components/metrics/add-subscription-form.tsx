@@ -2,7 +2,6 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 import { CurrencyPicker } from "@/components/ui/currency-picker";
 import { FormError } from "@/components/ui/form-field";
 import { MenuSelect } from "@/components/ui/menu-select";
@@ -208,20 +207,20 @@ export function AddSubscriptionForm({
 
   if (!projectOptions.length) {
     return (
-      <div className="quick-entry">
+      <div className="composer">
         <p className="form-error">Create a project before logging subscriptions.</p>
-        <Button type="button" variant="ghost" onClick={onCancel}>
+        <button type="button" className="dash-btn dash-btn--ghost" onClick={onCancel}>
           Close
-        </Button>
+        </button>
       </div>
     );
   }
 
   return (
-    <form className="quick-entry" onSubmit={handleSubmit}>
-      <div className="quick-entry__row">
-        <label className="quick-entry__amount">
-          <span className="quick-entry__prefix">$</span>
+    <form className="composer" onSubmit={handleSubmit}>
+      <div className="composer__line">
+        <label className="composer__amount">
+          <span className="composer__amount-prefix">$</span>
           <input
             type="number"
             step="0.01"
@@ -233,10 +232,15 @@ export function AddSubscriptionForm({
           />
         </label>
 
-        <CurrencyPicker value={currency} onChange={setCurrency} />
+        <CurrencyPicker
+          value={currency}
+          onChange={setCurrency}
+          showFlag={false}
+          className="composer__select"
+        />
 
         <input
-          className="quick-entry__vendor"
+          className="composer__input composer__input--vendor"
           required
           value={vendor}
           maxLength={FIELD_LIMITS.vendor}
@@ -258,7 +262,7 @@ export function AddSubscriptionForm({
           onChange={setProject}
           options={projectOptions}
           placeholder="Project"
-          className="quick-entry__project"
+          className="composer__select composer__select--project"
         />
 
         <MenuSelect
@@ -267,29 +271,35 @@ export function AddSubscriptionForm({
           value={interval}
           onChange={setInterval}
           options={INTERVALS}
+          className="composer__select"
         />
 
-        <div className="quick-entry__actions">
+        <div className="composer__actions">
           <button
             type="button"
-            className={`quick-entry__more${showMore ? " quick-entry__more--open" : ""}`}
+            className={`dash-btn dash-btn--ghost${showMore ? " dash-btn--active" : ""}`}
             onClick={() => setShowMore((open) => !open)}
             aria-expanded={showMore}
           >
             More
           </button>
-          <Button type="submit" variant="ink" disabled={submitting}>
+          <button type="submit" className="dash-btn dash-btn--primary" disabled={submitting}>
             {submitting ? "…" : mode === "edit" ? "Save" : "Add"}
-          </Button>
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
-            ✕
-          </Button>
+          </button>
+          <button
+            type="button"
+            className="dash-btn dash-btn--ghost"
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
         </div>
       </div>
 
-      <div className="quick-entry__row quick-entry__row--secondary">
+      <div className="composer__line">
         <input
-          className="quick-entry__notes"
+          className="composer__input composer__input--notes"
           value={notes}
           maxLength={FIELD_LIMITS.description}
           onChange={(e) => setNotes(trimToLimit(e.target.value, FIELD_LIMITS.description))}
@@ -299,8 +309,8 @@ export function AddSubscriptionForm({
       </div>
 
       {showMore ? (
-        <div className="quick-entry__row quick-entry__row--secondary">
-          <label className="quick-entry__date">
+        <div className="composer__line composer__line--more">
+          <label className="composer__date">
             <span className="sr-only">Charged at</span>
             <input
               type="date"
@@ -314,7 +324,7 @@ export function AddSubscriptionForm({
               }}
             />
           </label>
-          <label className="quick-entry__date">
+          <label className="composer__date">
             <span className="sr-only">Renewal date</span>
             <input
               type="date"
@@ -328,6 +338,7 @@ export function AddSubscriptionForm({
             value={status}
             onChange={setStatus}
             options={STATUSES}
+            className="composer__select"
           />
           <MenuSelect
             compact
@@ -336,6 +347,7 @@ export function AddSubscriptionForm({
             onChange={setCategory}
             options={categoryOptions}
             placeholder="Category"
+            className="composer__select"
           />
         </div>
       ) : null}
