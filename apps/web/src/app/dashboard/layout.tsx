@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { DashboardLayoutShell } from "@/components/layout/dashboard-layout-shell";
 import { apiFetch, type MeResponse } from "@/lib/api";
+import { resolveDashboardUser } from "@/lib/auth/user-display";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function DashboardLayout({
@@ -15,22 +16,16 @@ export default async function DashboardLayout({
   if (!session) redirect("/login");
 
   let workspaces: MeResponse["workspaces"] = [];
-  let user: { name: string; email?: string; avatarUrl?: string | null } | undefined;
+  let me: MeResponse | null = null;
 
   try {
-    const me = await apiFetch<MeResponse>("/api/v1/me", session.access_token);
+    me = await apiFetch<MeResponse>("/api/v1/me", session.access_token);
     workspaces = me.workspaces;
-    user = {
-      name: me.profile?.display_name ?? me.user.email?.split("@")[0] ?? "Account",
-      email: me.user.email,
-      avatarUrl: me.profile?.avatar_url ?? null,
-    };
   } catch {
     workspaces = [];
-    user = session.user.email
-      ? { name: session.user.email.split("@")[0], email: session.user.email }
-      : undefined;
   }
+
+  const user = resolveDashboardUser(session.user, me);
 
   return (
     <DashboardLayoutShell workspaces={workspaces} user={user}>

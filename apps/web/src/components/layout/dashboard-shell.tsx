@@ -50,7 +50,7 @@ export function DashboardShell({
 }: {
   workspaces: Workspace[];
   currentSlug?: string;
-  user?: { name: string; email?: string; avatarUrl?: string | null };
+  user?: { name: string; email?: string; avatarUrl?: string | null; provider?: string | null };
   navItems?: NavItem[];
   children: ReactNode;
 }) {
@@ -92,7 +92,14 @@ export function DashboardShell({
           <WorkspaceSwitcher workspaces={workspaces} currentSlug={currentSlug} />
         </div>
 
-        {user ? <UserProfile name={user.name} email={user.email} avatarUrl={user.avatarUrl} /> : null}
+        {user ? (
+          <UserProfile
+            name={user.name}
+            email={user.email}
+            avatarUrl={user.avatarUrl}
+            provider={user.provider}
+          />
+        ) : null}
       </aside>
 
       <div className="dashboard-body">{children}</div>
