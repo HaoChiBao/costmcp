@@ -29,7 +29,7 @@ function GoogleIcon() {
 }
 
 export function GoogleSignInButton({
-  next,
+  next = "/dashboard",
   label = "Continue with Google",
 }: {
   next?: string | null;

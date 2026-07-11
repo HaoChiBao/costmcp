@@ -2,9 +2,8 @@
 export function buildAuthCallbackUrl(next?: string | null): string {
   const origin = window.location.origin;
   const callback = new URL("/auth/callback", origin);
-  if (next && next.startsWith("/")) {
-    callback.searchParams.set("next", next);
-  }
+  const destination = next && next.startsWith("/") ? next : "/dashboard";
+  callback.searchParams.set("next", destination);
   return callback.toString();
 }
 

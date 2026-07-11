@@ -24,13 +24,8 @@ site_url = "https://costmcp.com"
 additional_redirect_urls = [
   "https://costmcp.com",
   "https://www.costmcp.com",
-  "https://api.costmcp.com",
   "https://costmcp.com/auth/callback",
   "https://www.costmcp.com/auth/callback",
-  "http://localhost:3001",
-  "http://localhost:3001/auth/callback",
-  "http://localhost:3000",
-  "http://127.0.0.1:54321/auth/v1/callback",
 ]
 
 [auth.external.google]

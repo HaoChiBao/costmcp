@@ -39,7 +39,7 @@ function LoginForm() {
         <h1 className="auth-page__title">Sign in</h1>
         <p className="text-muted">Access your organized cost accounts.</p>
         <div className="auth-form">
-          <GoogleSignInButton next={next} />
+          <GoogleSignInButton next={next ?? "/dashboard"} />
           <p className="auth-divider">
             <span>or</span>
           </p>

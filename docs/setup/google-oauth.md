@@ -46,9 +46,17 @@ Open: https://supabase.com/dashboard/project/bylrekkhwcwosdmcgfsg/auth/url-confi
 
 - `https://costmcp.com/auth/callback`
 - `https://www.costmcp.com/auth/callback`
-- `http://localhost:3001/auth/callback`
 
-**Site URL** should be `https://costmcp.com` (or `http://localhost:3001` for local-only testing).
+Localhost URLs are removed from production config. For local dev, run `supabase start` with the `[auth]` block in `supabase/config.toml` (add localhost URLs back only in a local override if needed).
+
+**Site URL** should be `https://costmcp.com`.
+
+To push `supabase/config.toml` auth settings to the hosted project:
+
+```powershell
+npx supabase login
+./scripts/push-supabase-auth-config.ps1
+```
 
 ## 3. Local development
 
