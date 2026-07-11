@@ -25,6 +25,7 @@ type Props = {
   className?: string;
   align?: "left" | "right";
   compact?: boolean;
+  disabled?: boolean;
 };
 
 export function MenuSelect({
@@ -36,6 +37,7 @@ export function MenuSelect({
   className = "",
   align = "left",
   compact = false,
+  disabled = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -82,6 +84,7 @@ export function MenuSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
+        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
         onKeyDown={onTriggerKeyDown}
       >

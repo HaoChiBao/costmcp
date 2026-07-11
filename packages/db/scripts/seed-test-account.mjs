@@ -460,97 +460,165 @@ async function main() {
 
     // ── This month (Jul 1–6) — month / quarter / week / day views ──
 
-    { project: "slideshow-studio", type: "usage", amount: 0.04, when: dayThisMonth(1, 9), feature: "slide_generation", provider: "openai", model: "gpt-image-2", category: "image-generation", tags: ["production", "images"] },
+    { project: "slideshow-studio", type: "usage", amount: 0.04, when: dayThisMonth(1, 9), feature: "slide_generation", provider: "openai", model: "gpt-image-2", category: "image-generation", tags: ["production", "images"], description: "Hero slide batch for launch deck" },
 
-    { project: "slideshow-studio", type: "usage", amount: 0.12, when: dayThisMonth(1, 15), feature: "slide_generation", provider: "openai", model: "gpt-image-2" },
+    { project: "slideshow-studio", type: "usage", amount: 0.12, when: dayThisMonth(1, 15), feature: "slide_generation", provider: "openai", model: "gpt-image-2", description: "Follow-up variants for A/B test" },
 
-    { project: "progressgoat", type: "usage", amount: 1.24, when: dayThisMonth(2, 10), feature: "chat", provider: "openai", model: "gpt-4o" },
+    { project: "progressgoat", type: "usage", amount: 1.24, when: dayThisMonth(2, 10), feature: "chat", provider: "openai", model: "gpt-4o", description: "Onboarding copy iteration with product team" },
 
-    { project: "progressgoat", type: "usage", amount: 0.89, when: dayThisMonth(2, 16), feature: "chat", provider: "openai", model: "gpt-4o-mini" },
+    { project: "progressgoat", type: "usage", amount: 0.89, when: dayThisMonth(2, 16), feature: "chat", provider: "openai", model: "gpt-4o-mini", description: "Support macro suggestions for help center" },
 
-    { project: "youtube-pipeline", type: "usage", amount: 3.5, when: dayThisMonth(3, 11), feature: "video_gen", provider: "kling" },
+    { project: "youtube-pipeline", type: "usage", amount: 3.5, when: dayThisMonth(3, 11), feature: "video_gen", provider: "kling", description: "B-roll clips for June product recap" },
 
-    { project: "youtube-pipeline", type: "usage", amount: 2.8, when: dayThisMonth(3, 17), feature: "video_gen", provider: "kling" },
+    { project: "youtube-pipeline", type: "usage", amount: 2.8, when: dayThisMonth(3, 17), feature: "video_gen", provider: "kling", description: "Short-form teaser for social cutdowns" },
 
-    { project: "youtube-pipeline", type: "expense", amount: 49.0, when: dayThisMonth(3, 18), feature: "elevenlabs_starter", provider: "elevenlabs" },
+    { project: "youtube-pipeline", type: "expense", amount: 49.0, when: dayThisMonth(3, 18), provider: "elevenlabs", description: "Starter plan credit top-up for YouTube voiceovers" },
 
-    { project: "ai-experiments", type: "usage", amount: 0.22, when: dayThisMonth(4, 9), feature: "prototype", provider: "openai", model: "gpt-4o-mini" },
+    { project: "ai-experiments", type: "usage", amount: 0.22, when: dayThisMonth(4, 9), feature: "prototype", provider: "openai", model: "gpt-4o-mini", description: "RAG prompt tuning for internal wiki bot" },
 
-    { project: "ai-experiments", type: "usage", amount: 0.18, when: dayThisMonth(4, 14), feature: "prototype", provider: "openai", model: "gpt-4o-mini" },
+    { project: "ai-experiments", type: "usage", amount: 0.18, when: dayThisMonth(4, 14), feature: "prototype", provider: "openai", model: "gpt-4o-mini", description: "Second-pass eval on retrieval quality" },
 
-    { project: "content-hub", type: "usage", amount: 0.55, when: dayThisMonth(4, 16), feature: "drafting", provider: "anthropic", model: "claude-sonnet" },
+    { project: "content-hub", type: "usage", amount: 0.55, when: dayThisMonth(4, 16), feature: "drafting", provider: "anthropic", model: "claude-sonnet", description: "Long-form blog draft for launch announcement" },
 
-    { project: "content-hub", type: "usage", amount: 0.41, when: dayThisMonth(5, 10), feature: "drafting", provider: "anthropic", model: "claude-haiku" },
+    { project: "content-hub", type: "usage", amount: 0.41, when: dayThisMonth(5, 10), feature: "drafting", provider: "anthropic", model: "claude-haiku", description: "Newsletter outline and subject line variants" },
 
-    { project: "slideshow-studio", type: "usage", amount: 0.08, when: dayThisMonth(5, 13), feature: "voiceover", provider: "elevenlabs" },
+    { project: "slideshow-studio", type: "usage", amount: 0.08, when: dayThisMonth(5, 13), feature: "voiceover", provider: "elevenlabs", description: "Narration pass for investor deck video" },
 
-    { project: "slideshow-studio", type: "usage", amount: 0.06, when: dayThisMonth(5, 17), feature: "slide_generation", provider: "openai", model: "gpt-4o-mini" },
+    { project: "slideshow-studio", type: "usage", amount: 0.06, when: dayThisMonth(5, 17), feature: "slide_generation", provider: "openai", model: "gpt-4o-mini", description: "Caption text cleanup for export" },
 
-    { project: "progressgoat", type: "usage", amount: 2.15, when: dayThisMonth(6, 8), feature: "embeddings", provider: "openai" },
+    { project: "progressgoat", type: "usage", amount: 2.15, when: dayThisMonth(6, 8), feature: "embeddings", provider: "openai", description: "Re-indexed help docs after taxonomy change" },
 
-    { project: "progressgoat", type: "usage", amount: 0.45, when: dayThisMonth(6, 11), feature: "chat", provider: "anthropic", model: "claude-sonnet" },
+    { project: "progressgoat", type: "usage", amount: 0.45, when: dayThisMonth(6, 11), feature: "chat", provider: "anthropic", model: "claude-sonnet", description: "Escalation triage assistant for support queue" },
 
-    { project: "internal-tools", type: "usage", amount: 0.33, when: dayThisMonth(6, 13), feature: "lint_bot", provider: "openai", model: "gpt-4o-mini" },
+    { project: "internal-tools", type: "usage", amount: 0.33, when: dayThisMonth(6, 13), feature: "lint_bot", provider: "openai", model: "gpt-4o-mini", description: "PR review comments on shared component library" },
 
-    { project: "youtube-pipeline", type: "usage", amount: 1.9, when: dayThisMonth(6, 14), feature: "thumbnail", provider: "openai", model: "gpt-image-2" },
+    { project: "youtube-pipeline", type: "usage", amount: 1.9, when: dayThisMonth(6, 14), feature: "thumbnail", provider: "openai", model: "gpt-image-2", description: "Thumbnail concepts for weekly upload series" },
 
-    { project: "ai-experiments", type: "expense", amount: 15.0, when: dayThisMonth(6, 15), feature: "modal_credits", provider: "modal" },
+    { project: "ai-experiments", type: "expense", amount: 15.0, when: dayThisMonth(6, 15), provider: "modal", description: "GPU runtime credits for overnight eval jobs" },
 
     // Subscriptions — allocation bar segment
 
-    { project: "slideshow-studio", type: "subscription", amount: 20.0, when: dayThisMonth(1, 8), feature: "cursor_pro", provider: "cursor" },
+    { project: "slideshow-studio", type: "subscription", amount: 20.0, when: dayThisMonth(1, 8), provider: "cursor", description: "Pro seat for slideshow-studio maintainers" },
 
-    { project: "progressgoat", type: "subscription", amount: 20.0, when: dayThisMonth(1, 8), feature: "cursor_pro", provider: "cursor" },
+    { project: "progressgoat", type: "subscription", amount: 20.0, when: dayThisMonth(1, 8), provider: "cursor", description: "Pro seat shared across progressgoat squad" },
 
-    { project: "content-hub", type: "subscription", amount: 12.0, when: dayThisMonth(1, 8), feature: "notion_ai", provider: "notion" },
+    { project: "content-hub", type: "subscription", amount: 12.0, when: dayThisMonth(1, 8), provider: "notion", description: "Notion AI add-on for editorial workflow" },
 
     // Today only — 1D pill
 
-    { project: "slideshow-studio", type: "usage", amount: 0.15, when: daysAgo(0, 9), feature: "slide_generation", provider: "openai", model: "gpt-image-2" },
+    { project: "slideshow-studio", type: "usage", amount: 0.15, when: daysAgo(0, 9), feature: "slide_generation", provider: "openai", model: "gpt-image-2", description: "Final polish pass on Q3 roadmap slides" },
 
-    { project: "progressgoat", type: "usage", amount: 1.02, when: daysAgo(0, 14), feature: "chat", provider: "openai", model: "gpt-4o" },
+    { project: "progressgoat", type: "usage", amount: 1.02, when: daysAgo(0, 14), feature: "chat", provider: "openai", model: "gpt-4o", description: "Live chat summarization for standup notes" },
 
-    { project: "content-hub", type: "usage", amount: 0.28, when: daysAgo(0, 16), feature: "seo_scan", provider: "openai", model: "gpt-4o-mini" },
+    { project: "content-hub", type: "usage", amount: 0.28, when: daysAgo(0, 16), feature: "seo_scan", provider: "openai", model: "gpt-4o-mini", description: "Weekly keyword gap scan for pillar pages" },
 
     // Unassigned — ledger + breakdown "Unassigned"
 
-    { project: null, type: "usage", amount: 0.05, when: daysAgo(0, 17), feature: "orphan_call", provider: "openai", model: "gpt-4o-mini" },
+    { project: null, type: "usage", amount: 0.05, when: daysAgo(0, 17), feature: "orphan_call", provider: "openai", model: "gpt-4o-mini", description: "Ad-hoc API call before project tag was added" },
 
 
 
     // ── Prior months — YTD / All period pills ──
 
-    { project: "slideshow-studio", type: "usage", amount: 0.11, when: daysAgo(25, 12), feature: "slide_generation", provider: "openai", model: "gpt-image-2" },
+    { project: "slideshow-studio", type: "usage", amount: 0.11, when: daysAgo(25, 12), feature: "slide_generation", provider: "openai", model: "gpt-image-2", description: "Template refresh for customer stories deck" },
 
-    { project: "progressgoat", type: "usage", amount: 0.67, when: daysAgo(25, 14), feature: "chat", provider: "openai", model: "gpt-4o-mini" },
+    { project: "progressgoat", type: "usage", amount: 0.67, when: daysAgo(25, 14), feature: "chat", provider: "openai", model: "gpt-4o-mini", description: "FAQ expansion for billing help articles" },
 
-    { project: "youtube-pipeline", type: "usage", amount: 4.2, when: daysAgo(40, 10), feature: "video_gen", provider: "kling" },
+    { project: "youtube-pipeline", type: "usage", amount: 4.2, when: daysAgo(40, 10), feature: "video_gen", provider: "kling", description: "Launch recap montage for YouTube main channel" },
 
-    { project: "youtube-pipeline", type: "expense", amount: 29.0, when: daysAgo(40, 11), feature: "runway_credits", provider: "runway" },
+    { project: "youtube-pipeline", type: "expense", amount: 29.0, when: daysAgo(40, 11), provider: "runway", description: "One-time video gen credits for spring campaign" },
 
-    { project: "ai-experiments", type: "usage", amount: 0.31, when: daysAgo(55, 10), feature: "rag_test", provider: "openai" },
+    { project: "ai-experiments", type: "usage", amount: 0.31, when: daysAgo(55, 10), feature: "rag_test", provider: "openai", description: "Baseline retrieval benchmark on wiki corpus" },
 
-    { project: "content-hub", type: "usage", amount: 0.19, when: daysAgo(55, 12), feature: "drafting", provider: "anthropic", model: "claude-haiku" },
+    { project: "content-hub", type: "usage", amount: 0.19, when: daysAgo(55, 12), feature: "drafting", provider: "anthropic", model: "claude-haiku", description: "Short social copy for feature launch thread" },
 
-    { project: "slideshow-studio", type: "subscription", amount: 20.0, when: daysAgo(60, 8), feature: "cursor_pro", provider: "cursor" },
+    { project: "slideshow-studio", type: "subscription", amount: 20.0, when: daysAgo(60, 8), provider: "cursor", description: "May billing cycle — slideshow-studio seat" },
 
-    { project: "progressgoat", type: "subscription", amount: 20.0, when: daysAgo(60, 8), feature: "cursor_pro", provider: "cursor" },
+    { project: "progressgoat", type: "subscription", amount: 20.0, when: daysAgo(60, 8), provider: "cursor", description: "May billing cycle — progressgoat seat" },
 
-    { project: "internal-tools", type: "usage", amount: 0.12, when: daysAgo(75, 11), feature: "lint_bot", provider: "openai", model: "gpt-4o-mini" },
+    { project: "internal-tools", type: "usage", amount: 0.12, when: daysAgo(75, 11), feature: "lint_bot", provider: "openai", model: "gpt-4o-mini", description: "Style guide enforcement on docs site PRs" },
 
-    { project: "youtube-pipeline", type: "usage", amount: 1.75, when: daysAgo(90, 10), feature: "video_gen", provider: "kling" },
+    { project: "youtube-pipeline", type: "usage", amount: 1.75, when: daysAgo(90, 10), feature: "video_gen", provider: "kling", description: "Tutorial series intro animations" },
 
-    { project: "ai-experiments", type: "expense", amount: 10.0, when: daysAgo(90, 11), feature: "gpu_credits", provider: "modal" },
+    { project: "ai-experiments", type: "expense", amount: 10.0, when: daysAgo(90, 11), provider: "modal", description: "Sandbox GPU credits for model comparison runs" },
 
-    { project: "slideshow-studio", type: "usage", amount: 0.09, when: daysAgo(120, 10), feature: "voiceover", provider: "fish" },
+    { project: "slideshow-studio", type: "usage", amount: 0.09, when: daysAgo(120, 10), feature: "voiceover", provider: "fish", description: "Alternate voice take for product demo clip" },
 
-    { project: "progressgoat", type: "usage", amount: 0.38, when: daysAgo(120, 12), feature: "chat", provider: "anthropic", model: "claude-sonnet" },
+    { project: "progressgoat", type: "usage", amount: 0.38, when: daysAgo(120, 12), feature: "chat", provider: "anthropic", model: "claude-sonnet", description: "Churn-risk outreach email drafts" },
 
-    { project: "content-hub", type: "usage", amount: 0.24, when: daysAgo(150, 10), feature: "drafting", provider: "openai", model: "gpt-4o-mini" },
+    { project: "content-hub", type: "usage", amount: 0.24, when: daysAgo(150, 10), feature: "drafting", provider: "openai", model: "gpt-4o-mini", description: "Case study outline for enterprise customer" },
 
-    { project: "youtube-pipeline", type: "subscription", amount: 15.0, when: daysAgo(150, 8), feature: "kling_plan", provider: "kling" },
+    { project: "youtube-pipeline", type: "subscription", amount: 15.0, when: daysAgo(150, 8), provider: "kling", description: "Monthly Kling plan for pipeline automation" },
 
   ];
+
+
+
+  const providerNames = Object.fromEntries(vendorDefs.map((v) => [v.slug, v.name]));
+
+
+
+  function buildMetadata(m) {
+
+    const base = { seeded: true };
+
+    if (m.type === "usage") {
+
+      return {
+
+        ...base,
+
+        provider: m.provider ?? null,
+
+        model: m.model ?? null,
+
+        ...(m.description ? { notes: m.description } : {}),
+
+      };
+
+    }
+
+    if (m.type === "expense") {
+
+      return {
+
+        ...base,
+
+        vendor: providerNames[m.provider] ?? m.provider ?? "Unknown",
+
+        expense_type: m.expense_type ?? "one_time_purchase",
+
+        ...(m.category ? { category: m.category } : {}),
+
+        ...(m.description ? { notes: m.description } : {}),
+
+      };
+
+    }
+
+    if (m.type === "subscription") {
+
+      return {
+
+        ...base,
+
+        vendor: providerNames[m.provider] ?? m.provider ?? "Unknown",
+
+        interval: m.interval ?? "monthly",
+
+        status: m.status ?? "active",
+
+        ...(m.category ? { category: m.category } : {}),
+
+        ...(m.description ? { notes: m.description } : {}),
+
+      };
+
+    }
+
+    return base;
+
+  }
 
 
 
@@ -566,13 +634,13 @@ async function main() {
 
     currency: "USD",
 
-    feature: m.feature,
+    feature: m.feature ?? null,
 
     environment: m.project ? projectEnvs[m.project] : "production",
 
     source: "api",
 
-    metadata: { provider: m.provider ?? null, model: m.model ?? null, seeded: true },
+    metadata: buildMetadata(m),
 
     cost_category_id: resolveCategory(m),
 
@@ -651,6 +719,8 @@ async function main() {
   console.log("    • Vendors: 9 across llm / voice / video / ide / gpu / saas");
 
   console.log("    • Ledger: 20+ rows with colored type + project labels");
+
+  console.log("    • Descriptions: notes on usage, expense, and subscription rows");
 
   console.log("\n  Login:       http://localhost:3001/login");
 

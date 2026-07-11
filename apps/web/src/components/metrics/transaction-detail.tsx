@@ -49,6 +49,7 @@ export function TransactionDetail({
     row.currency && row.currency !== "USD" && row.amount_original != null
       ? `${row.amount_original.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${row.currency}`
       : null;
+  const description = row.notes?.trim() || row.feature?.trim() || null;
 
   return (
     <div className="transaction-detail">
@@ -85,6 +86,10 @@ export function TransactionDetail({
               "—"
             )}
           </dd>
+        </div>
+        <div className="transaction-detail__field transaction-detail__field--description">
+          <dt>Description</dt>
+          <dd>{description ?? "—"}</dd>
         </div>
         {original ? (
           <div className="transaction-detail__field">

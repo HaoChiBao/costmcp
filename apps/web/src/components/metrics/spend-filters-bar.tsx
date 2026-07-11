@@ -1,16 +1,17 @@
 "use client";
 
 import type { OrgTree } from "@/lib/api";
-import { ENVIRONMENT_OPTIONS, type SpendFilters } from "@/lib/metrics";
-import { SelectField } from "@/components/ui/form-field";
-import { Button } from "@/components/ui/button";
+import {
+  ENVIRONMENT_OPTIONS,
+  MESSAGE_TYPE_OPTIONS,
+  type SpendFilters,
+} from "@/lib/metrics";
+import { MenuSelect } from "@/components/ui/menu-select";
 
 type Props = {
   org: OrgTree;
   filters: SpendFilters;
   onChange: (filters: SpendFilters) => void;
-  onExport?: () => void;
-  exporting?: boolean;
   disabled?: boolean;
 };
 
@@ -27,73 +28,80 @@ function collectProjects(org: OrgTree) {
   return projects.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function SpendFiltersBar({
-  org,
-  filters,
-  onChange,
-  onExport,
-  exporting = false,
-  disabled = false,
-}: Props) {
+function filterClass(active: boolean) {
+  return active ? "spend-filter spend-filter--active" : "spend-filter";
+}
+
+export function SpendFiltersBar({ org, filters, onChange, disabled = false }: Props) {
   const projects = collectProjects(org);
+  const projectOptions = [
+    { value: "", label: "All projects" },
+    ...projects.map((project) => ({
+      value: project.slug,
+      label: project.name,
+    })),
+  ];
   const vendorOptions = [
     { value: "", label: "All vendors" },
     ...org.vendors.map((vendor) => ({ value: vendor.slug, label: vendor.name })),
   ];
 
-  const hasActiveFilters = Boolean(filters.project || filters.environment || filters.vendor);
+  const hasActiveFilters = Boolean(
+    filters.project || filters.environment || filters.vendor || filters.type,
+  );
 
   return (
-    <div className="spend-filters" aria-label="Spend filters">
-      <div className="spend-filters__fields">
-        <SelectField
-          label="Project"
+    <div className="spend-filters spend-filters--inline" aria-label="Spend filters">
+      <div className="spend-filters__row">
+        <MenuSelect
+          compact
+          ariaLabel="Type"
+          value={filters.type ?? ""}
+          disabled={disabled}
+          className={filterClass(Boolean(filters.type))}
+          onChange={(value) => onChange({ ...filters, type: value || undefined })}
+          options={[...MESSAGE_TYPE_OPTIONS]}
+          placeholder="All types"
+        />
+        <MenuSelect
+          compact
+          ariaLabel="Project"
           value={filters.project ?? ""}
           disabled={disabled}
-          onChange={(e) => onChange({ ...filters, project: e.target.value || undefined })}
-          options={[
-            { value: "", label: "All projects" },
-            ...projects.map((project) => ({
-              value: project.slug,
-              label: project.name,
-            })),
-          ]}
+          className={filterClass(Boolean(filters.project))}
+          onChange={(value) => onChange({ ...filters, project: value || undefined })}
+          options={projectOptions}
+          placeholder="All projects"
         />
-        <SelectField
-          label="Environment"
+        <MenuSelect
+          compact
+          ariaLabel="Environment"
           value={filters.environment ?? ""}
           disabled={disabled}
-          onChange={(e) => onChange({ ...filters, environment: e.target.value || undefined })}
+          className={filterClass(Boolean(filters.environment))}
+          onChange={(value) => onChange({ ...filters, environment: value || undefined })}
           options={[...ENVIRONMENT_OPTIONS]}
+          placeholder="All environments"
         />
-        <SelectField
-          label="Vendor"
+        <MenuSelect
+          compact
+          ariaLabel="Vendor"
           value={filters.vendor ?? ""}
           disabled={disabled}
-          onChange={(e) => onChange({ ...filters, vendor: e.target.value || undefined })}
+          className={filterClass(Boolean(filters.vendor))}
+          onChange={(value) => onChange({ ...filters, vendor: value || undefined })}
           options={vendorOptions}
+          placeholder="All vendors"
         />
-      </div>
-      <div className="spend-filters__actions">
         {hasActiveFilters ? (
-          <Button
+          <button
             type="button"
-            variant="ghost"
+            className="spend-filters__clear"
             disabled={disabled}
             onClick={() => onChange({})}
           >
-            Clear filters
-          </Button>
-        ) : null}
-        {onExport ? (
-          <Button
-            type="button"
-            variant="default"
-            disabled={disabled || exporting}
-            onClick={onExport}
-          >
-            {exporting ? "Exporting…" : "Export CSV"}
-          </Button>
+            Clear
+          </button>
         ) : null}
       </div>
     </div>

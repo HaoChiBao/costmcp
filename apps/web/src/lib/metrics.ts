@@ -150,6 +150,13 @@ export const ENVIRONMENT_OPTIONS = [
   { value: "development", label: "Development" },
 ] as const;
 
+export const MESSAGE_TYPE_OPTIONS = [
+  { value: "", label: "All types" },
+  { value: "usage", label: "Usage" },
+  { value: "expense", label: "Expense" },
+  { value: "subscription", label: "Subscription" },
+] as const;
+
 export function buildSpendQuery(
   period: Period,
   filters: SpendFilters,

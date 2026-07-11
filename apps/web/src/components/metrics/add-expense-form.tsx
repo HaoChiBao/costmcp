@@ -7,6 +7,7 @@ import { CurrencyPicker } from "@/components/ui/currency-picker";
 import { FormError } from "@/components/ui/form-field";
 import { MenuSelect } from "@/components/ui/menu-select";
 import type { OrgTree } from "@/lib/api";
+import { FIELD_LIMITS, fieldLengthError, trimToLimit } from "@/lib/field-limits";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -105,7 +106,7 @@ export function AddExpenseForm({
     () => initial?.occurredAt ?? toDatetimeLocalValue(new Date()),
   );
   const [showMore, setShowMore] = useState(
-    Boolean(initial?.notes || (initial?.category && initial.category !== "") ||
+    Boolean((initial?.category && initial.category !== "") ||
       (initial?.expenseType && initial.expenseType !== "one_time_purchase")),
   );
   const [submitting, setSubmitting] = useState(false);
@@ -122,6 +123,20 @@ export function AddExpenseForm({
     }
     if (!vendor.trim()) {
       setError("Add a vendor.");
+      return;
+    }
+    const vendorError = fieldLengthError(vendor.trim(), FIELD_LIMITS.vendor, "Vendor");
+    if (vendorError) {
+      setError(vendorError);
+      return;
+    }
+    const descriptionError = fieldLengthError(
+      notes.trim(),
+      FIELD_LIMITS.description,
+      "Description",
+    );
+    if (descriptionError) {
+      setError(descriptionError);
       return;
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount === 0) {
@@ -200,7 +215,7 @@ export function AddExpenseForm({
             step="0.01"
             required
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(trimToLimit(e.target.value, FIELD_LIMITS.amount))}
             placeholder="0.00"
             aria-label="Amount"
           />
@@ -212,7 +227,8 @@ export function AddExpenseForm({
           className="quick-entry__vendor"
           required
           value={vendor}
-          onChange={(e) => setVendor(e.target.value)}
+          maxLength={FIELD_LIMITS.vendor}
+          onChange={(e) => setVendor(trimToLimit(e.target.value, FIELD_LIMITS.vendor))}
           placeholder="Vendor"
           list="expense-vendor-suggestions"
           aria-label="Vendor"
@@ -266,6 +282,17 @@ export function AddExpenseForm({
         </div>
       </div>
 
+      <div className="quick-entry__row quick-entry__row--secondary">
+        <input
+          className="quick-entry__notes"
+          value={notes}
+          maxLength={FIELD_LIMITS.description}
+          onChange={(e) => setNotes(trimToLimit(e.target.value, FIELD_LIMITS.description))}
+          placeholder="Description (optional)"
+          aria-label="Description"
+        />
+      </div>
+
       {showMore ? (
         <div className="quick-entry__row quick-entry__row--secondary">
           <MenuSelect
@@ -282,13 +309,6 @@ export function AddExpenseForm({
             onChange={setCategory}
             options={categoryOptions}
             placeholder="Category"
-          />
-          <input
-            className="quick-entry__notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Note (optional)"
-            aria-label="Notes"
           />
         </div>
       ) : null}

@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+export const FIELD_LIMITS = {
+  vendor: 80,
+  notes: 280,
+  project: 64,
+  provider: 80,
+  feature: 120,
+} as const;
+
 export const MessageSourceSchema = z.enum(["api", "mcp", "manual", "import"]);
 export type MessageSource = z.infer<typeof MessageSourceSchema>;
 
@@ -39,13 +47,13 @@ export type ExpenseType = z.infer<typeof ExpenseTypeSchema>;
 
 export const UsageMessageSchema = z.object({
   type: z.literal("usage"),
-  provider: z.string().min(1),
-  model: z.string().optional(),
+  provider: z.string().min(1).max(FIELD_LIMITS.provider),
+  model: z.string().max(80).optional(),
   unit_type: UnitTypeSchema,
   quantity: z.number().positive(),
   unit_cost: z.number().nonnegative().optional(),
   estimated_cost: z.number().nonnegative().optional(),
-  feature: z.string().optional(),
+  feature: z.string().max(FIELD_LIMITS.feature).optional(),
   batch_id: z.string().optional(),
   environment: z.string().optional(),
   external_request_id: z.string().optional(),
@@ -54,49 +62,49 @@ export const UsageMessageSchema = z.object({
 
 export const ExpenseMessageSchema = z.object({
   type: z.literal("expense"),
-  vendor: z.string().min(1),
+  vendor: z.string().min(1).max(FIELD_LIMITS.vendor),
   amount: MoneyAmountSchema,
   currency: z.string().default("USD"),
-  category: z.string().optional(),
+  category: z.string().max(64).optional(),
   expense_type: ExpenseTypeSchema.default("one_time_purchase"),
-  notes: z.string().optional(),
+  notes: z.string().max(FIELD_LIMITS.notes).optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
 export const SubscriptionMessageSchema = z.object({
   type: z.literal("subscription"),
-  vendor: z.string().min(1),
+  vendor: z.string().min(1).max(FIELD_LIMITS.vendor),
   amount: MoneyAmountSchema,
   currency: z.string().default("USD"),
   interval: z.enum(["monthly", "yearly", "weekly", "quarterly"]),
   renewal_date: z.string().datetime().optional(),
-  category: z.string().optional(),
-  project_allocation: z.string().optional(),
+  category: z.string().max(64).optional(),
+  project_allocation: z.string().max(64).optional(),
   status: z.enum(["active", "trial", "paused", "cancelled"]).default("active"),
-  notes: z.string().optional(),
+  notes: z.string().max(FIELD_LIMITS.notes).optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
 export const AllocationMessageSchema = z.object({
   type: z.literal("allocation"),
   parent_message_id: z.string().uuid(),
-  project: z.string().min(1),
+  project: z.string().min(1).max(FIELD_LIMITS.project),
   allocated_amount: z.number().positive(),
   currency: z.string().default("USD"),
-  notes: z.string().optional(),
+  notes: z.string().max(FIELD_LIMITS.notes).optional(),
 });
 
 export const BatchMessageSchema = z.object({
   type: z.literal("batch"),
-  name: z.string().min(1),
+  name: z.string().min(1).max(80),
   total_estimated_cost: z.number().nonnegative().optional(),
   total_actual_cost: z.number().nonnegative().optional(),
   outputs_generated: z.number().int().nonnegative().optional(),
   usable_outputs: z.number().int().nonnegative().optional(),
   final_outputs: z.number().int().nonnegative().optional(),
-  provider: z.string().optional(),
-  feature: z.string().optional(),
-  notes: z.string().optional(),
+  provider: z.string().max(FIELD_LIMITS.provider).optional(),
+  feature: z.string().max(FIELD_LIMITS.feature).optional(),
+  notes: z.string().max(FIELD_LIMITS.notes).optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
@@ -111,7 +119,7 @@ export const CostMessagePayloadSchema = z.discriminatedUnion("type", [
 export type CostMessagePayload = z.infer<typeof CostMessagePayloadSchema>;
 
 export const CostMessageEnvelopeSchema = z.object({
-  project: z.string().min(1),
+  project: z.string().min(1).max(FIELD_LIMITS.project),
   source: MessageSourceSchema.default("api"),
   idempotency_key: z.string().optional(),
   timestamp: z.string().datetime().optional(),

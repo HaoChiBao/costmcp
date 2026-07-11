@@ -146,7 +146,6 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
   const [filters, setFilters] = useState<SpendFilters>({});
   const [comparison, setComparison] = useState<MetricsComparison | null>(null);
   const [exporting, setExporting] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   const [metrics, setMetrics] = useState<WorkspaceMetrics | null>(
     () => readCachedMetrics(workspaceSlug, "month", {})?.metrics ?? null,
   );
@@ -461,6 +460,8 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
         amount_usd: row.amount_usd,
         currency: row.currency,
         amount_original: row.amount_original,
+        notes: row.notes,
+        feature: row.feature,
         editable:
           row.message_type === "expense" || row.message_type === "subscription",
       };
@@ -494,7 +495,6 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
 
   if (!metrics) return null;
 
-  const hasActiveFilters = Boolean(filters.project || filters.environment || filters.vendor);
   const comparisonLine =
     comparison && period !== "all" ? formatComparisonLine(comparison) : null;
 
@@ -531,27 +531,6 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
             </div>
 
             <div className="activity-page__actions">
-              <button
-                type="button"
-                className={`dash-btn dash-btn--icon${showFilters || hasActiveFilters ? " dash-btn--active" : ""}`}
-                onClick={() => setShowFilters((open) => !open)}
-                aria-label="Filters"
-                aria-expanded={showFilters}
-              >
-                <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                  <path
-                    d="M8 14a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"
-                    stroke="currentColor"
-                    strokeWidth="1.25"
-                  />
-                  <path
-                    d="m13 13 2.5 2.5"
-                    stroke="currentColor"
-                    strokeWidth="1.25"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
               <button
                 type="button"
                 className="dash-btn dash-btn--ghost"
@@ -612,18 +591,14 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
             ) : null}
           </div>
         </div>
-      </header>
 
-      {showFilters ? (
-        <div className="activity-page__filters">
-          <SpendFiltersBar
-            org={org}
-            filters={filters}
-            onChange={applyFilters}
-            disabled={refreshing}
-          />
-        </div>
-      ) : null}
+        <SpendFiltersBar
+          org={org}
+          filters={filters}
+          onChange={applyFilters}
+          disabled={refreshing}
+        />
+      </header>
 
       <details className="activity-page__chart">
         <summary>Spend over time</summary>

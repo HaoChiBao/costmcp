@@ -13,6 +13,8 @@ export type LedgerRow = {
   amount_usd: number;
   currency?: string | null;
   amount_original?: number | null;
+  notes?: string | null;
+  feature?: string | null;
   editable?: boolean;
 };
 
