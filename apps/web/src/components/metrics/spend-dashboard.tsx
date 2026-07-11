@@ -29,6 +29,7 @@ import { ActivityFeed } from "@/components/metrics/activity-feed";
 import { SpendFiltersBar } from "@/components/metrics/spend-filters-bar";
 import { SpendChart } from "@/components/metrics/spend-chart";
 import { TransactionDetail } from "@/components/metrics/transaction-detail";
+import { LedgerModal } from "@/components/ui/ledger-modal";
 import { formatActivityDisplay, formatActivityRowDate } from "@/lib/activity-display";
 import type { OrgTree } from "@/lib/api";
 
@@ -449,6 +450,22 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
 
   const editingRow = displayActivity?.activity.find((row) => row.id === editingId) ?? null;
 
+  const modalOpen = composer !== null || editingId !== null;
+
+  const modalTitle =
+    editingRow?.message_type === "subscription"
+      ? "Edit subscription"
+      : editingRow?.message_type === "expense"
+        ? "Edit expense"
+        : composer === "subscription"
+          ? "Add subscription"
+          : "Add expense";
+
+  const closeModal = useCallback(() => {
+    setComposer(null);
+    setEditingId(null);
+  }, []);
+
   const ledgerRows =
     displayActivity?.activity.map((row) => {
       const display = formatActivityDisplay({
@@ -553,23 +570,23 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
               </button>
               <button
                 type="button"
-                className={`dash-btn${composer === "expense" ? " dash-btn--active" : ""}`}
+                className="dash-btn"
                 onClick={() => {
                   setEditingId(null);
-                  setComposer((c) => (c === "expense" ? null : "expense"));
+                  setComposer("expense");
                 }}
               >
-                {composer === "expense" ? "Close" : "Add expense"}
+                Add expense
               </button>
               <button
                 type="button"
-                className={`dash-btn dash-btn--primary${composer === "subscription" ? " dash-btn--active" : ""}`}
+                className="dash-btn dash-btn--primary"
                 onClick={() => {
                   setEditingId(null);
-                  setComposer((c) => (c === "subscription" ? null : "subscription"));
+                  setComposer("subscription");
                 }}
               >
-                {composer === "subscription" ? "Close" : "Add subscription"}
+                Add subscription
               </button>
             </div>
           </div>
@@ -626,86 +643,6 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
         <div className="activity-page__list">
           {error ? <p className="form-error">{error}</p> : null}
 
-          {composer === "expense" ? (
-            <div className="activity-page__composer">
-              <AddExpenseForm
-                workspaceSlug={workspaceSlug}
-                org={org}
-                onSuccess={reloadDashboard}
-                onCancel={() => setComposer(null)}
-              />
-            </div>
-          ) : null}
-
-          {composer === "subscription" ? (
-            <div className="activity-page__composer">
-              <AddSubscriptionForm
-                workspaceSlug={workspaceSlug}
-                org={org}
-                onSuccess={reloadDashboard}
-                onCancel={() => setComposer(null)}
-              />
-            </div>
-          ) : null}
-
-          {editingRow?.message_type === "expense" ? (
-            <div className="activity-page__composer">
-              <AddExpenseForm
-                workspaceSlug={workspaceSlug}
-                org={org}
-                mode="edit"
-                expenseId={editingRow.id}
-                initial={{
-                  project: editingRow.project_slug ?? "",
-                  vendor: editingRow.vendor ?? "",
-                  amount: String(
-                    Math.abs(editingRow.amount_original ?? editingRow.amount_usd),
-                  ),
-                  currency: editingRow.currency ?? "USD",
-                  category: resolveCategorySlug(org, editingRow.category),
-                  expenseType: editingRow.expense_type ?? "one_time_purchase",
-                  notes: editingRow.notes ?? "",
-                  occurredAt: toDatetimeLocalValue(
-                    editingRow.occurred_at ?? editingRow.created_at,
-                  ),
-                }}
-                onSuccess={reloadDashboard}
-                onCancel={() => setEditingId(null)}
-              />
-            </div>
-          ) : null}
-
-          {editingRow?.message_type === "subscription" ? (
-            <div className="activity-page__composer">
-              <AddSubscriptionForm
-                workspaceSlug={workspaceSlug}
-                org={org}
-                mode="edit"
-                subscriptionId={editingRow.id}
-                initial={{
-                  project: editingRow.project_slug ?? "",
-                  vendor: editingRow.vendor ?? "",
-                  amount: String(
-                    Math.abs(editingRow.amount_original ?? editingRow.amount_usd),
-                  ),
-                  currency: editingRow.currency ?? "USD",
-                  category: resolveCategorySlug(org, editingRow.category),
-                  interval: editingRow.interval ?? "monthly",
-                  status: editingRow.status ?? "active",
-                  notes: editingRow.notes ?? "",
-                  occurredAt: toDatetimeLocalValue(
-                    editingRow.occurred_at ?? editingRow.created_at,
-                  ),
-                  renewalDate: editingRow.metadata?.renewal_date
-                    ? toDateValue(String(editingRow.metadata.renewal_date))
-                    : "",
-                }}
-                onSuccess={reloadDashboard}
-                onCancel={() => setEditingId(null)}
-              />
-            </div>
-          ) : null}
-
           <ActivityFeed
             rows={ledgerRows}
             selectedId={selectedId}
@@ -727,6 +664,80 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
           {!selectedRow ? <ActivitySummary metrics={metrics} /> : null}
         </aside>
       </div>
+
+      <LedgerModal open={modalOpen} title={modalTitle} onClose={closeModal}>
+        {composer === "expense" ? (
+          <AddExpenseForm
+            workspaceSlug={workspaceSlug}
+            org={org}
+            onSuccess={reloadDashboard}
+            onCancel={closeModal}
+          />
+        ) : null}
+
+        {composer === "subscription" ? (
+          <AddSubscriptionForm
+            workspaceSlug={workspaceSlug}
+            org={org}
+            onSuccess={reloadDashboard}
+            onCancel={closeModal}
+          />
+        ) : null}
+
+        {editingRow?.message_type === "expense" ? (
+          <AddExpenseForm
+            workspaceSlug={workspaceSlug}
+            org={org}
+            mode="edit"
+            expenseId={editingRow.id}
+            initial={{
+              project: editingRow.project_slug ?? "",
+              vendor: editingRow.vendor ?? "",
+              amount: String(
+                Math.abs(editingRow.amount_original ?? editingRow.amount_usd),
+              ),
+              currency: editingRow.currency ?? "USD",
+              category: resolveCategorySlug(org, editingRow.category),
+              expenseType: editingRow.expense_type ?? "one_time_purchase",
+              notes: editingRow.notes ?? "",
+              occurredAt: toDatetimeLocalValue(
+                editingRow.occurred_at ?? editingRow.created_at,
+              ),
+            }}
+            onSuccess={reloadDashboard}
+            onCancel={closeModal}
+          />
+        ) : null}
+
+        {editingRow?.message_type === "subscription" ? (
+          <AddSubscriptionForm
+            workspaceSlug={workspaceSlug}
+            org={org}
+            mode="edit"
+            subscriptionId={editingRow.id}
+            initial={{
+              project: editingRow.project_slug ?? "",
+              vendor: editingRow.vendor ?? "",
+              amount: String(
+                Math.abs(editingRow.amount_original ?? editingRow.amount_usd),
+              ),
+              currency: editingRow.currency ?? "USD",
+              category: resolveCategorySlug(org, editingRow.category),
+              interval: editingRow.interval ?? "monthly",
+              status: editingRow.status ?? "active",
+              notes: editingRow.notes ?? "",
+              occurredAt: toDatetimeLocalValue(
+                editingRow.occurred_at ?? editingRow.created_at,
+              ),
+              renewalDate: editingRow.metadata?.renewal_date
+                ? toDateValue(String(editingRow.metadata.renewal_date))
+                : "",
+            }}
+            onSuccess={reloadDashboard}
+            onCancel={closeModal}
+          />
+        ) : null}
+      </LedgerModal>
     </div>
   );
 }
