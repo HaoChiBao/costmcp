@@ -2880,7 +2880,7 @@ a {
 
 .activity-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 0.9fr) minmax(0, 1.4fr) auto auto;
+  grid-template-columns: auto minmax(0, 0.85fr) minmax(0, 1.35fr) auto auto auto;
   align-items: center;
   gap: var(--spacing-12);
   width: 100%;
@@ -2938,6 +2938,18 @@ a {
 .activity-row__meta {
   font-size: 13px;
   color: var(--color-ash);
+}
+
+.activity-row__type {
+  display: flex;
+  justify-content: flex-start;
+  min-width: 6.75rem;
+}
+
+.activity-row__type-pill {
+  padding: 2px 7px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
 
 .activity-row__date {
@@ -4919,13 +4931,17 @@ a {
   }
 
   .activity-row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     gap: var(--spacing-8);
   }
 
   .activity-row__meta,
   .activity-row__date {
     display: none;
+  }
+
+  .activity-row__type {
+    min-width: 0;
   }
 
   .dashboard-sidebar {

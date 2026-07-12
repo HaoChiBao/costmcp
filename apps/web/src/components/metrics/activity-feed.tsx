@@ -3,6 +3,7 @@
 import { formatUsd } from "@/lib/metrics";
 import { formatActivityDisplay } from "@/lib/activity-display";
 import { messageTypeTone } from "@/lib/org-colors";
+import { OrgPill } from "@/components/ui/org-pill";
 import type { LedgerRow } from "@/components/metrics/ledger-table";
 
 export type ActivityRow = LedgerRow & {
@@ -102,6 +103,11 @@ export function ActivityFeed({
                     </span>
                     <span className="activity-row__label">{display.title}</span>
                     <span className="activity-row__meta">{display.subtitle}</span>
+                    <span className="activity-row__type">
+                      <OrgPill tone={tone} className="activity-row__type-pill">
+                        {tone.label}
+                      </OrgPill>
+                    </span>
                     <span className="activity-row__date">{row.date}</span>
                     <span className="activity-row__amount tabular-nums">
                       {formatUsd(row.amount_usd)}

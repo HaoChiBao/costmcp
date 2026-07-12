@@ -1,5 +1,3 @@
-import { messageTypeTone } from "@/lib/org-colors";
-
 function capitalize(value: string) {
   if (!value) return value;
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -27,7 +25,6 @@ export function formatActivityDisplay(input: ActivityDisplayInput): ActivityDisp
   const parts = input.label.split("·").map((part) => part.trim()).filter(Boolean);
   const type = (input.messageType ?? parts[0] ?? "").toLowerCase();
   const project = input.projectName ?? parts[1] ?? "Unassigned";
-  const tone = messageTypeTone(type);
 
   if (type === "usage") {
     const feature = input.feature ?? parts[2] ?? null;
@@ -42,7 +39,6 @@ export function formatActivityDisplay(input: ActivityDisplayInput): ActivityDisp
 
     const subtitleParts = [project];
     if (feature && feature !== provider) subtitleParts.push(humanizeSlug(feature));
-    subtitleParts.push(tone.label);
 
     return {
       title,
@@ -57,8 +53,8 @@ export function formatActivityDisplay(input: ActivityDisplayInput): ActivityDisp
       : parts[0]
         ? humanizeSlug(parts[0])
         : input.label;
-    const subtitleParts = [project, tone.label];
-    if (parts[1] && parts[1] !== project) subtitleParts.splice(1, 0, humanizeSlug(parts[1]));
+    const subtitleParts = [project];
+    if (parts[1] && parts[1] !== project) subtitleParts.push(humanizeSlug(parts[1]));
 
     return {
       title,
