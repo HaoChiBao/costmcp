@@ -541,7 +541,7 @@ a {
   --hook-height: 1400px;
   --center-scroll-scale: 1;
   --side-hooks-opacity: 1;
-  --hook-sway-deg: 0deg;
+  --hook-scroll-sway-deg: 0deg;
   --hook-top-offset: 36px;
   overflow-x: clip;
 }
@@ -578,12 +578,12 @@ a {
 .landing-spine__hook-mini-sway {
   transform: translateY(var(--hook-drop)) scale(var(--hook-scale));
   transform-origin: top center;
-  animation: hook-pill-sway var(--hook-sway-duration, 4.5s) ease-in-out infinite;
-  animation-delay: var(--hook-sway-delay, 0s);
+  rotate: var(--hook-sway-deg, 0deg);
+  will-change: rotate;
 }
 
 .landing-spine__hook-mini-sway--still {
-  animation: none;
+  rotate: 0deg;
 }
 
 .landing-spine__hook-sticky {
@@ -608,12 +608,13 @@ a {
 
 .landing-spine__hook-sway {
   transform-origin: top center;
-  animation: hook-pill-sway var(--hook-sway-duration, 5s) ease-in-out infinite;
+  rotate: var(--hook-sway-deg, 0deg);
   line-height: 0;
+  will-change: rotate;
 }
 
 .landing-spine__hook-sway--still {
-  animation: none;
+  rotate: 0deg;
 }
 
 .landing-spine__hook-grow {
@@ -688,10 +689,10 @@ a {
 @keyframes hook-pill-sway {
   0%,
   100% {
-    rotate: calc(var(--hook-sway-angle, 1.4deg) * -1 + var(--hook-cursor-sway-deg, 0deg));
+    rotate: calc(var(--hook-sway-angle, 1.4deg) * -1);
   }
   50% {
-    rotate: calc(var(--hook-sway-angle, 1.4deg) + var(--hook-cursor-sway-deg, 0deg));
+    rotate: var(--hook-sway-angle, 1.4deg);
   }
 }
 
