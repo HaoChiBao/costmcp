@@ -104,7 +104,7 @@ export function ActivityFeed({
                     <span className="activity-row__label">{display.title}</span>
                     <span className="activity-row__meta">{display.subtitle}</span>
                     <span className="activity-row__type">
-                      <OrgPill tone={tone} className="activity-row__type-pill">
+                      <OrgPill tone={tone} dot={false} className="activity-row__type-pill">
                         {tone.label}
                       </OrgPill>
                     </span>
