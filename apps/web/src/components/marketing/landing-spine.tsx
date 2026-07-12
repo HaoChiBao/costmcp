@@ -265,7 +265,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
         const rect = img.getBoundingClientRect();
         if (!isPointerOverBill(rect, pointer.x, pointer.y)) return;
 
-        getSwayState(id, el).offsetVelocity += impulse;
+        getSwayState(id, el).offsetVelocity -= impulse;
       });
     };
 
