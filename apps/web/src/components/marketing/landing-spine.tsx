@@ -22,16 +22,19 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-type SwayPhysics = {
+type BillSwayState = {
   angle: number;
   velocity: number;
+  amplitude: number;
+  period: number;
+  phase: number;
 };
 
-const CURSOR_SWAY_VELOCITY_SCALE = 0.0035;
-const CURSOR_SWAY_VERTICAL_SCALE = 0.0012;
-const CURSOR_SWAY_DAMPING = 0.9;
-const CURSOR_SWAY_SPRING = 0.07;
-const CURSOR_SWAY_MAX_DEG = 11;
+const SWAY_STIFFNESS = 5.5;
+const SWAY_DAMPING = 5.8;
+const CURSOR_MAX_SPEED = 1.4;
+const CURSOR_IMPULSE = 2.4;
+const CURSOR_VERTICAL_RATIO = 0.28;
 
 function HookImage({ className }: { className: string }) {
   return (
@@ -50,7 +53,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
   const spineRef = useRef<HTMLDivElement>(null);
   const [bobbing, setBobbing] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const swayPhysicsRef = useRef<Map<string, SwayPhysics>>(new Map());
+  const swayPhysicsRef = useRef<Map<string, BillSwayState>>(new Map());
   const pointerRef = useRef({
     x: 0,
     y: 0,
@@ -170,7 +173,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
       spine.style.setProperty("--center-scroll-scale", String(centerScrollScale));
       spine.style.setProperty("--center-lift", `${centerLift}px`);
       spine.style.setProperty("--side-hooks-opacity", String(sideOpacity));
-      spine.style.setProperty("--hook-sway-deg", `${hookSway}deg`);
+      spine.style.setProperty("--hook-scroll-sway-deg", `${hookSway}deg`);
 
       if (!reduceMotion && Math.abs(rawGrow - smoothedGrow) > 0.0008) {
         frame = requestAnimationFrame(update);
@@ -199,13 +202,29 @@ export function LandingSpine({ children }: LandingSpineProps) {
     const spine = spineRef.current;
     if (!spine) return;
 
-    const getSwayState = (id: string): SwayPhysics => {
+    const startTime = performance.now();
+    let lastTick = startTime;
+    let physicsFrame = 0;
+
+    const readBillConfig = (el: HTMLElement): Pick<BillSwayState, "amplitude" | "period" | "phase"> => ({
+      amplitude: Number(el.dataset.swayAmplitude) || 1.4,
+      period: Number(el.dataset.swayPeriod) || 4.5,
+      phase: Number(el.dataset.swayPhase) || 0,
+    });
+
+    const getSwayState = (id: string, el: HTMLElement): BillSwayState => {
       let state = swayPhysicsRef.current.get(id);
       if (!state) {
-        state = { angle: 0, velocity: 0 };
+        const config = readBillConfig(el);
+        state = { angle: 0, velocity: 0, ...config };
         swayPhysicsRef.current.set(id, state);
       }
       return state;
+    };
+
+    const idleTarget = (t: number, state: BillSwayState) => {
+      const omega = (Math.PI * 2) / state.period;
+      return state.amplitude * Math.sin(omega * t + state.phase);
     };
 
     const isPointerOverBill = (rect: DOMRect, x: number, y: number) => {
@@ -218,60 +237,45 @@ export function LandingSpine({ children }: LandingSpineProps) {
       );
     };
 
-    const applyCursorImpulse = () => {
+    const pointerImpulseForBill = (el: HTMLElement) => {
       const pointer = pointerRef.current;
-      if (!pointer.active) return;
+      if (!pointer.active) return 0;
 
+      const rect = el.getBoundingClientRect();
+      if (!isPointerOverBill(rect, pointer.x, pointer.y)) return 0;
+
+      const speed = Math.hypot(pointer.vx, pointer.vy);
+      if (speed < 0.02) return 0;
+
+      const normalized = Math.min(speed / CURSOR_MAX_SPEED, 1);
+      const nx = pointer.vx / speed;
+      const ny = pointer.vy / speed;
+      return normalized * (nx * CURSOR_IMPULSE + ny * CURSOR_IMPULSE * CURSOR_VERTICAL_RATIO);
+    };
+
+    const tickPhysics = (now: number) => {
+      const dt = Math.min((now - lastTick) / 1000, 0.05);
+      lastTick = now;
+      const t = (now - startTime) / 1000;
       const swayTargets = spine.querySelectorAll<HTMLElement>("[data-hook-id]");
+
       swayTargets.forEach((el) => {
         const id = el.dataset.hookId;
         if (!id) return;
 
-        const rect = el.getBoundingClientRect();
-        if (!isPointerOverBill(rect, pointer.x, pointer.y)) return;
+        const state = getSwayState(id, el);
+        const target = idleTarget(t, state);
+        const spring = (target - state.angle) * SWAY_STIFFNESS;
+        const damping = -state.velocity * SWAY_DAMPING;
+        const impulse = pointerImpulseForBill(el);
 
-        const state = getSwayState(id);
-        state.velocity +=
-          pointer.vx * CURSOR_SWAY_VELOCITY_SCALE +
-          pointer.vy * CURSOR_SWAY_VERTICAL_SCALE;
-      });
-    };
+        state.velocity += (spring + damping + impulse) * dt;
+        state.angle += state.velocity * dt;
 
-    let physicsFrame = 0;
-
-    const tickPhysics = () => {
-      const swayTargets = spine.querySelectorAll<HTMLElement>("[data-hook-id]");
-      let moving = false;
-
-      swayTargets.forEach((el) => {
-        const id = el.dataset.hookId;
-        if (!id) return;
-
-        const state = getSwayState(id);
-        state.velocity += -state.angle * CURSOR_SWAY_SPRING;
-        state.velocity *= CURSOR_SWAY_DAMPING;
-        state.angle += state.velocity;
-        state.angle = clamp(state.angle, -CURSOR_SWAY_MAX_DEG, CURSOR_SWAY_MAX_DEG);
-
-        if (Math.abs(state.angle) > 0.02 || Math.abs(state.velocity) > 0.02) {
-          moving = true;
-        } else {
-          state.angle = 0;
-          state.velocity = 0;
-        }
-
-        el.style.setProperty("--hook-cursor-sway-deg", `${state.angle}deg`);
+        el.style.setProperty("--hook-sway-deg", `${state.angle}deg`);
       });
 
-      if (moving || pointerRef.current.active) {
-        physicsFrame = requestAnimationFrame(tickPhysics);
-      } else {
-        physicsFrame = 0;
-      }
-    };
-
-    const ensurePhysicsLoop = () => {
-      if (!physicsFrame) physicsFrame = requestAnimationFrame(tickPhysics);
+      physicsFrame = requestAnimationFrame(tickPhysics);
     };
 
     const onPointerMove = (event: PointerEvent) => {
@@ -280,10 +284,10 @@ export function LandingSpine({ children }: LandingSpineProps) {
       const dt = pointer.lastTime > 0 ? Math.min(now - pointer.lastTime, 48) : 16;
 
       if (pointer.lastTime > 0 && dt > 0) {
-        const rawVx = ((event.clientX - pointer.lastX) / dt) * 16;
-        const rawVy = ((event.clientY - pointer.lastY) / dt) * 16;
-        pointer.vx = pointer.vx * 0.55 + rawVx * 0.45;
-        pointer.vy = pointer.vy * 0.55 + rawVy * 0.45;
+        const rawVx = (event.clientX - pointer.lastX) / dt;
+        const rawVy = (event.clientY - pointer.lastY) / dt;
+        pointer.vx = pointer.vx * 0.6 + rawVx * 0.4;
+        pointer.vy = pointer.vy * 0.6 + rawVy * 0.4;
       }
 
       pointer.x = event.clientX;
@@ -292,15 +296,15 @@ export function LandingSpine({ children }: LandingSpineProps) {
       pointer.lastY = event.clientY;
       pointer.lastTime = now;
       pointer.active = true;
-
-      applyCursorImpulse();
-      ensurePhysicsLoop();
     };
 
     const onPointerLeave = () => {
       pointerRef.current.active = false;
+      pointerRef.current.vx = 0;
+      pointerRef.current.vy = 0;
     };
 
+    physicsFrame = requestAnimationFrame(tickPhysics);
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     document.documentElement.addEventListener("pointerleave", onPointerLeave);
 
@@ -326,7 +330,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
           "--center-scroll-scale": CENTER_SCROLL_SCALE_START,
           "--center-lift": "0px",
           "--side-hooks-opacity": 1,
-          "--hook-sway-deg": "0deg",
+          "--hook-scroll-sway-deg": "0deg",
           "--hook-top-offset": `${HOOK_TOP_OFFSET}px`,
         } as CSSProperties
       }
@@ -349,13 +353,13 @@ export function LandingSpine({ children }: LandingSpineProps) {
               <div
                 className={`landing-spine__hook-mini-sway${reduceMotion ? " landing-spine__hook-mini-sway--still" : ""}`}
                 data-hook-id={hook.id}
+                data-sway-amplitude={hook.swayAngle}
+                data-sway-period={hook.swayDuration}
+                data-sway-phase={(hook.swayDelay / hook.swayDuration) * Math.PI * 2}
                 style={
                   {
                     "--hook-scale": scaledBillSize(hook.scale),
                     "--hook-drop": `${hook.drop}px`,
-                    "--hook-sway-delay": `${hook.swayDelay}s`,
-                    "--hook-sway-duration": `${hook.swayDuration}s`,
-                    "--hook-sway-angle": `${hook.swayAngle}deg`,
                   } as CSSProperties
                 }
               >
@@ -368,17 +372,14 @@ export function LandingSpine({ children }: LandingSpineProps) {
         <div className="landing-spine__hook-sticky">
           <div
             className="landing-spine__hook-sway-scroll"
-            style={{ rotate: "var(--hook-sway-deg)" }}
+            style={{ rotate: "var(--hook-scroll-sway-deg)" }}
           >
             <div
               className={`landing-spine__hook-sway${reduceMotion ? " landing-spine__hook-sway--still" : ""}`}
               data-hook-id="center"
-              style={
-                {
-                  "--hook-sway-duration": "5.4s",
-                  "--hook-sway-angle": "1.8deg",
-                } as CSSProperties
-              }
+              data-sway-amplitude={1.8}
+              data-sway-period={5.4}
+              data-sway-phase={0}
             >
               <div
                 className="landing-spine__hook-grow"
