@@ -23,18 +23,19 @@ function clamp(value: number, min: number, max: number) {
 }
 
 type BillSwayState = {
-  angle: number;
-  velocity: number;
+  offsetAngle: number;
+  offsetVelocity: number;
   amplitude: number;
   period: number;
   phase: number;
 };
 
-const SWAY_STIFFNESS = 5.5;
-const SWAY_DAMPING = 5.8;
-const CURSOR_MAX_SPEED = 1.4;
-const CURSOR_IMPULSE = 2.4;
-const CURSOR_VERTICAL_RATIO = 0.28;
+const OFFSET_SPRING = 7.5;
+const OFFSET_DAMPING = 5;
+const CURSOR_MAX_SPEED = 1.6;
+const CURSOR_VELOCITY_IMPULSE = 9;
+const CURSOR_VERTICAL_RATIO = 0.22;
+const CURSOR_MIN_SPEED = 0.04;
 
 function HookImage({ className }: { className: string }) {
   return (
@@ -216,41 +217,56 @@ export function LandingSpine({ children }: LandingSpineProps) {
       let state = swayPhysicsRef.current.get(id);
       if (!state) {
         const config = readBillConfig(el);
-        state = { angle: 0, velocity: 0, ...config };
+        state = { offsetAngle: 0, offsetVelocity: 0, ...config };
         swayPhysicsRef.current.set(id, state);
       }
       return state;
     };
 
-    const idleTarget = (t: number, state: BillSwayState) => {
+    const idleAngle = (t: number, state: BillSwayState) => {
       const omega = (Math.PI * 2) / state.period;
       return state.amplitude * Math.sin(omega * t + state.phase);
     };
 
+    const billImage = (el: HTMLElement) => el.querySelector("img");
+
     const isPointerOverBill = (rect: DOMRect, x: number, y: number) => {
-      const padX = rect.width * 0.22;
+      const padX = rect.width * 0.18;
+      const padY = rect.height * 0.04;
       return (
         x >= rect.left - padX &&
         x <= rect.right + padX &&
-        y >= rect.top &&
-        y <= rect.bottom
+        y >= rect.top - padY &&
+        y <= rect.bottom + padY
       );
     };
 
-    const pointerImpulseForBill = (el: HTMLElement) => {
+    const applyCursorImpulse = () => {
       const pointer = pointerRef.current;
-      if (!pointer.active) return 0;
-
-      const rect = el.getBoundingClientRect();
-      if (!isPointerOverBill(rect, pointer.x, pointer.y)) return 0;
+      if (!pointer.active) return;
 
       const speed = Math.hypot(pointer.vx, pointer.vy);
-      if (speed < 0.02) return 0;
+      if (speed < CURSOR_MIN_SPEED) return;
 
       const normalized = Math.min(speed / CURSOR_MAX_SPEED, 1);
       const nx = pointer.vx / speed;
       const ny = pointer.vy / speed;
-      return normalized * (nx * CURSOR_IMPULSE + ny * CURSOR_IMPULSE * CURSOR_VERTICAL_RATIO);
+      const impulse =
+        normalized * (nx * CURSOR_VELOCITY_IMPULSE + ny * CURSOR_VELOCITY_IMPULSE * CURSOR_VERTICAL_RATIO);
+
+      const swayTargets = spine.querySelectorAll<HTMLElement>("[data-hook-id]");
+      swayTargets.forEach((el) => {
+        const id = el.dataset.hookId;
+        if (!id) return;
+
+        const img = billImage(el);
+        if (!img) return;
+
+        const rect = img.getBoundingClientRect();
+        if (!isPointerOverBill(rect, pointer.x, pointer.y)) return;
+
+        getSwayState(id, el).offsetVelocity += impulse;
+      });
     };
 
     const tickPhysics = (now: number) => {
@@ -264,15 +280,14 @@ export function LandingSpine({ children }: LandingSpineProps) {
         if (!id) return;
 
         const state = getSwayState(id, el);
-        const target = idleTarget(t, state);
-        const spring = (target - state.angle) * SWAY_STIFFNESS;
-        const damping = -state.velocity * SWAY_DAMPING;
-        const impulse = pointerImpulseForBill(el);
+        const base = idleAngle(t, state);
+        const spring = -state.offsetAngle * OFFSET_SPRING;
+        const damping = -state.offsetVelocity * OFFSET_DAMPING;
 
-        state.velocity += (spring + damping + impulse) * dt;
-        state.angle += state.velocity * dt;
+        state.offsetVelocity += (spring + damping) * dt;
+        state.offsetAngle += state.offsetVelocity * dt;
 
-        el.style.setProperty("--hook-sway-deg", `${state.angle}deg`);
+        el.style.setProperty("--hook-sway-deg", `${base + state.offsetAngle}deg`);
       });
 
       physicsFrame = requestAnimationFrame(tickPhysics);
@@ -286,8 +301,8 @@ export function LandingSpine({ children }: LandingSpineProps) {
       if (pointer.lastTime > 0 && dt > 0) {
         const rawVx = (event.clientX - pointer.lastX) / dt;
         const rawVy = (event.clientY - pointer.lastY) / dt;
-        pointer.vx = pointer.vx * 0.6 + rawVx * 0.4;
-        pointer.vy = pointer.vy * 0.6 + rawVy * 0.4;
+        pointer.vx = pointer.vx * 0.5 + rawVx * 0.5;
+        pointer.vy = pointer.vy * 0.5 + rawVy * 0.5;
       }
 
       pointer.x = event.clientX;
@@ -296,6 +311,8 @@ export function LandingSpine({ children }: LandingSpineProps) {
       pointer.lastY = event.clientY;
       pointer.lastTime = now;
       pointer.active = true;
+
+      applyCursorImpulse();
     };
 
     const onPointerLeave = () => {
