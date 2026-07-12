@@ -632,22 +632,21 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
         />
       </header>
 
-      <details className="activity-page__chart">
-        <summary>Spend over time</summary>
-        <div className="activity-page__chart-body">
-          <SpendChart metrics={metrics} />
-        </div>
-      </details>
-
       <div className="activity-page__split">
-        <div className="activity-page__list">
-          {error ? <p className="form-error">{error}</p> : null}
+        <div className="activity-page__main">
+          <div className="activity-page__chart">
+            <SpendChart metrics={metrics} />
+          </div>
 
-          <ActivityFeed
-            rows={ledgerRows}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+          <div className="activity-page__list">
+            {error ? <p className="form-error">{error}</p> : null}
+
+            <ActivityFeed
+              rows={ledgerRows}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          </div>
         </div>
 
         <aside className="activity-page__detail">

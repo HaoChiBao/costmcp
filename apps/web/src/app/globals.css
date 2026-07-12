@@ -2682,39 +2682,6 @@ a {
   letter-spacing: 0;
 }
 
-.activity-page__chart {
-  padding: 0 var(--dash-gutter);
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--color-hairline);
-}
-
-.activity-page__chart summary {
-  font-size: 13px;
-  color: var(--color-ash);
-  cursor: pointer;
-  padding: var(--spacing-12) 0;
-  list-style: none;
-  user-select: none;
-}
-
-.activity-page__chart summary::-webkit-details-marker {
-  display: none;
-}
-
-.activity-page__chart summary::before {
-  content: "▸ ";
-  display: inline-block;
-  transition: transform var(--transition-fast);
-}
-
-.activity-page__chart[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.activity-page__chart-body {
-  padding-bottom: var(--spacing-20);
-}
-
 .activity-page__split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--dash-detail);
@@ -2723,9 +2690,22 @@ a {
   overflow: hidden;
 }
 
+.activity-page__main {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-page__chart {
+  flex-shrink: 0;
+  padding: var(--spacing-16) var(--dash-gutter) var(--spacing-20);
+  border-bottom: 1px solid var(--color-hairline);
+}
+
 .activity-page__list {
   min-width: 0;
-  overflow-y: auto;
   padding: var(--spacing-8) var(--dash-gutter) var(--dash-gutter);
 }
 
@@ -2734,6 +2714,7 @@ a {
   overflow-y: auto;
   padding: var(--dash-gutter);
   background: #fff;
+  min-height: 0;
 }
 
 .activity-page__composer {
@@ -4548,13 +4529,13 @@ a {
   transition: opacity var(--transition-fast);
 }
 
-.spend-dashboard--refreshing .activity-page__list,
+.spend-dashboard--refreshing .activity-page__main,
 .spend-dashboard--refreshing .activity-page__detail {
   opacity: 0.72;
   transition: opacity var(--transition-fast);
 }
 
-.spend-dashboard--background-refresh .activity-page__list,
+.spend-dashboard--background-refresh .activity-page__main,
 .spend-dashboard--background-refresh .activity-page__detail {
   opacity: 1;
 }
@@ -4910,8 +4891,7 @@ a {
     width: 100%;
   }
 
-  .activity-page__filters,
-  .activity-page__chart {
+  .activity-page__filters {
     padding-inline: var(--spacing-16);
   }
 
@@ -4920,9 +4900,16 @@ a {
     overflow: visible;
   }
 
+  .activity-page__main {
+    overflow: visible;
+  }
+
+  .activity-page__chart {
+    padding: var(--spacing-16) var(--spacing-16) var(--spacing-20);
+  }
+
   .activity-page__list {
     padding: var(--spacing-8) var(--spacing-16) var(--spacing-24);
-    overflow: visible;
   }
 
   .activity-page__detail {

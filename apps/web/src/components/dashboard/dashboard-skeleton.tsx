@@ -18,12 +18,17 @@ export function DashboardSkeleton() {
       </header>
 
       <div className="activity-page__split">
-        <div className="activity-page__list">
-          <div className="skeleton-stack">
-            <div className="skeleton-block skeleton-block--line" />
-            <div className="skeleton-block skeleton-block--line" />
-            <div className="skeleton-block skeleton-block--line" />
-            <div className="skeleton-block skeleton-block--line" />
+        <div className="activity-page__main">
+          <div className="activity-page__chart">
+            <div className="skeleton-block" style={{ width: "100%", height: "12rem" }} />
+          </div>
+          <div className="activity-page__list">
+            <div className="skeleton-stack">
+              <div className="skeleton-block skeleton-block--line" />
+              <div className="skeleton-block skeleton-block--line" />
+              <div className="skeleton-block skeleton-block--line" />
+              <div className="skeleton-block skeleton-block--line" />
+            </div>
           </div>
         </div>
         <aside className="activity-page__detail">
