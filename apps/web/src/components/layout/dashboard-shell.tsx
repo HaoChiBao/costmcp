@@ -15,7 +15,7 @@ type NavItem = {
   active?: boolean;
 };
 
-function NavIcon({ name }: { name: "activity" | "connections" }) {
+function NavIcon({ name }: { name: "activity" | "connections" | "api-keys" }) {
   if (name === "connections") {
     return (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -24,6 +24,20 @@ function NavIcon({ name }: { name: "activity" | "connections" }) {
           stroke="currentColor"
           strokeWidth="1.25"
           strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (name === "api-keys") {
+    return (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <path
+          d="M6.25 8.25a2.25 2.25 0 1 1 4.5 0v.75a1.5 1.5 0 0 0 1.5 1.5H13.5a1.5 1.5 0 0 1 1.5 1.5v1.5a1.5 1.5 0 0 1-1.5 1.5h-1.25M6.25 8.25V7.5a1.5 1.5 0 0 1 1.5-1.5h2.5a1.5 1.5 0 0 1 1.5 1.5v.75M6.25 8.25H4.5a1.5 1.5 0 0 0-1.5 1.5v1.5a1.5 1.5 0 0 0 1.5 1.5h1.75"
+          stroke="currentColor"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </svg>
     );
@@ -80,7 +94,15 @@ export function DashboardShell({
                       className={`dashboard-nav__link${item.active ? " dashboard-nav__link--active" : ""}`}
                       aria-current={item.active ? "page" : undefined}
                     >
-                      <NavIcon name={item.label === "Connections" ? "connections" : "activity"} />
+                      <NavIcon
+                        name={
+                          item.label === "Connections"
+                            ? "connections"
+                            : item.label === "API keys"
+                              ? "api-keys"
+                              : "activity"
+                        }
+                      />
                       <span>{item.label}</span>
                     </Link>
                   </li>
