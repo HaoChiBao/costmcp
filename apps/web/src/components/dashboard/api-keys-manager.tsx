@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { FormField, SelectField } from "@/components/ui/form-field";
-import { DashboardPanel, StatusBadge } from "@/components/ui/panel";
-import { createClient } from "@/lib/supabase/client";
 import { CodeBlock, CopyRow } from "@/components/dashboard/dashboard-code";
+import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
+import { FieldSelect } from "@/components/ui/field-select";
+import { FormField } from "@/components/ui/form-field";
+import { LedgerModal } from "@/components/ui/ledger-modal";
+import { MenuSelect } from "@/components/ui/menu-select";
+import { DashboardPanel, StatusBadge } from "@/components/ui/panel";
+import { RowActions } from "@/components/ui/row-actions";
+import { createClient } from "@/lib/supabase/client";
 
 type KeyConditions = {
   version?: 1;
@@ -37,6 +42,8 @@ type ApiKey = {
 
 type ProjectOption = { id: string; slug: string; name: string };
 
+type StatusFilter = "all" | "active" | "revoked";
+
 const ALL_PERMISSIONS: Array<{ id: string; label: string }> = [
   { id: "log_usage", label: "Log usage" },
   { id: "add_expenses", label: "Add expenses" },
@@ -44,9 +51,24 @@ const ALL_PERMISSIONS: Array<{ id: string; label: string }> = [
   { id: "estimate_costs", label: "Estimate costs" },
 ];
 
-const PERMISSION_LABEL = Object.fromEntries(ALL_PERMISSIONS.map((p) => [p.id, p.label]));
-
 const DEFAULT_PERMS = ALL_PERMISSIONS.map((p) => p.id);
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "revoked", label: "Revoked" },
+];
+
+const KEY_TABLE_COLUMNS = [
+  { id: "name", header: "Name" },
+  { id: "status", header: "Status" },
+  { id: "secret", header: "Secret key" },
+  { id: "created", header: "Created" },
+  { id: "last_used", header: "Last used" },
+  { id: "project", header: "Project" },
+  { id: "spend", header: "Spend", align: "right" as const },
+  { id: "actions", header: "", className: "data-table__actions-col" },
+];
 
 type KeyFormState = {
   name: string;
@@ -104,8 +126,21 @@ function buildMcpApiKeySnippet(mcpUrl: string, secret: string | null) {
   );
 }
 
-function formatPermissions(permissions: string[]) {
-  return permissions.map((p) => PERMISSION_LABEL[p] ?? p).join(" · ");
+function formatShortDate(value: string | null | undefined) {
+  if (!value) return "Never";
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatSpend(key: ApiKey) {
+  const spent = key.spent_usd ?? 0;
+  if (key.monthly_limit != null) {
+    return `$${spent.toFixed(2)} / $${key.monthly_limit.toFixed(2)}`;
+  }
+  return `$${spent.toFixed(2)}`;
 }
 
 function KeyFormFields({
@@ -156,11 +191,10 @@ function KeyFormFields({
       </fieldset>
 
       <div className="key-form__row">
-        <SelectField
-          id={`${idPrefix}-project`}
+        <FieldSelect
           label="Project scope"
           value={form.project_id}
-          onChange={(e) => setForm((f) => ({ ...f, project_id: e.target.value }))}
+          onChange={(value) => setForm((f) => ({ ...f, project_id: value }))}
           options={projectOptions}
         />
         <FormField
@@ -195,14 +229,13 @@ function KeyFormFields({
       {form.showAdvanced || !showAdvancedToggle ? (
         <div className="key-form__row">
           {showAdvancedToggle ? (
-            <SelectField
-              id={`${idPrefix}-env`}
+            <FieldSelect
               label="Environment"
               value={form.environment}
-              onChange={(e) =>
+              onChange={(value) =>
                 setForm((f) => ({
                   ...f,
-                  environment: e.target.value === "test" ? "test" : "live",
+                  environment: value === "test" ? "test" : "live",
                 }))
               }
               options={[
@@ -247,7 +280,9 @@ export function ApiKeysManager({
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
+  const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState<KeyFormState>(emptyForm);
   const [creating, setCreating] = useState(false);
   const [freshSecret, setFreshSecret] = useState<string | null>(null);
@@ -260,6 +295,11 @@ export function ApiKeysManager({
     () => new Map(projects.map((p) => [p.id, p])),
     [projects],
   );
+
+  const filteredKeys = useMemo(() => {
+    if (statusFilter === "all") return keys;
+    return keys.filter((key) => key.status === statusFilter);
+  }, [keys, statusFilter]);
 
   const token = useCallback(async () => {
     const supabase = createClient();
@@ -312,6 +352,16 @@ export function ApiKeysManager({
     void load();
   }, [load]);
 
+  function openCreate() {
+    setForm(emptyForm());
+    setCreateOpen(true);
+  }
+
+  function closeCreate() {
+    setCreateOpen(false);
+    setForm(emptyForm());
+  }
+
   async function createKey(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
@@ -339,11 +389,12 @@ export function ApiKeysManager({
     }
     const { key } = await res.json();
     setFreshSecret(key.secret);
-    setForm(emptyForm());
+    closeCreate();
     void load();
   }
 
   function startEdit(key: ApiKey) {
+    setCreateOpen(false);
     setEditingId(key.id);
     setEditForm({
       name: key.name,
@@ -356,6 +407,11 @@ export function ApiKeysManager({
       environment: key.environment === "test" ? "test" : "live",
       showAdvanced: Boolean(key.rate_limit_rpm || key.allowed_cidrs?.length),
     });
+  }
+
+  function closeEdit() {
+    setEditingId(null);
+    setEditForm(emptyForm());
   }
 
   async function saveEdit(e: React.FormEvent) {
@@ -386,7 +442,7 @@ export function ApiKeysManager({
       setError(body.error ?? "Could not update key.");
       return;
     }
-    setEditingId(null);
+    closeEdit();
     void load();
   }
 
@@ -416,7 +472,7 @@ export function ApiKeysManager({
       method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (editingId === id) setEditingId(null);
+    if (editingId === id) closeEdit();
     void load();
   }
 
@@ -425,18 +481,25 @@ export function ApiKeysManager({
     ...projects.map((p) => ({ value: p.id, label: `${p.name} (${p.slug})` })),
   ];
 
-  const activeCount = keys.filter((k) => k.status === "active").length;
+  const editingKey = editingId ? keys.find((key) => key.id === editingId) : null;
 
   return (
     <div className="dashboard-page">
       <header className="dashboard-page__header">
-        <h1 className="dashboard-page__title">API keys</h1>
-        <p className="dashboard-page__sub">
-          For CI, SDKs, and scripts. Secrets are shown once.
-        </p>
+        <div className="dashboard-page__header-row">
+          <div>
+            <h1 className="dashboard-page__title">API keys</h1>
+            <p className="dashboard-page__sub">
+              For CI, SDKs, and scripts. Secrets are shown once.
+            </p>
+          </div>
+          <Button type="button" variant="ink" onClick={openCreate}>
+            + Create key
+          </Button>
+        </div>
       </header>
 
-      <div className="dashboard-page__body dashboard-page__body--narrow">
+      <div className="dashboard-page__body">
         {error ? <p className="form-error">{error}</p> : null}
 
         {freshSecret ? (
@@ -451,125 +514,76 @@ export function ApiKeysManager({
           </div>
         ) : null}
 
-        <DashboardPanel title="Create key">
-          <form onSubmit={createKey} className="key-form key-form--stacked">
-            <KeyFormFields
-              form={form}
-              setForm={setForm}
-              projectOptions={projectOptions}
-              idPrefix="create"
-            />
-            <div className="key-form__actions">
-              <Button type="submit" variant="ink" disabled={creating || !form.permissions.length}>
-                {creating ? "Creating…" : "Create key"}
-              </Button>
-            </div>
-          </form>
-        </DashboardPanel>
+        <div className="dashboard-page__toolbar">
+          <MenuSelect
+            value={statusFilter}
+            options={STATUS_FILTER_OPTIONS}
+            onChange={(value) => setStatusFilter(value as StatusFilter)}
+            ariaLabel="Filter by status"
+            compact
+            className="spend-filter"
+          />
+          <span className="dashboard-page__toolbar-count">
+            {loading
+              ? "Loading…"
+              : `${filteredKeys.length} result${filteredKeys.length === 1 ? "" : "s"}`}
+          </span>
+        </div>
 
-        <DashboardPanel
-          title="Keys"
-          description={
-            keys.length ? `${activeCount} active · ${keys.length} total` : "No keys yet."
-          }
-        >
-          {loading ? (
-            <p className="dashboard-panel__empty">Loading…</p>
-          ) : keys.length === 0 ? (
-            <p className="dashboard-panel__empty">Create a key above to get started.</p>
-          ) : (
-            <ul className="key-list">
-              {keys.map((key) => {
-                const project = key.project_id ? projectById.get(key.project_id) : null;
-                const limit = key.monthly_limit;
-                const spent = key.spent_usd ?? 0;
-                const pct = limit && limit > 0 ? Math.min(1, spent / limit) : null;
-                const isEditing = editingId === key.id;
-                const metaParts = [
-                  project ? project.slug : "All projects",
-                  key.expires_at
-                    ? `Expires ${new Date(key.expires_at).toLocaleDateString()}`
-                    : null,
-                  key.rate_limit_rpm ? `${key.rate_limit_rpm}/min` : null,
-                ].filter(Boolean);
+        {loading ? (
+          <p className="dashboard-panel__empty">Loading…</p>
+        ) : (
+          <DataTable
+            columns={KEY_TABLE_COLUMNS}
+            isEmpty={!filteredKeys.length}
+            empty={
+              keys.length
+                ? "No keys match this filter."
+                : "No API keys yet. Create a key to get started."
+            }
+            flush
+            compact
+          >
+            {filteredKeys.map((key) => {
+              const project = key.project_id ? projectById.get(key.project_id) : null;
+              const actions =
+                key.status === "active"
+                  ? [
+                      { label: "Edit", onClick: () => startEdit(key) },
+                      { label: "Rotate", onClick: () => rotateKey(key.id) },
+                      {
+                        label: "Revoke",
+                        onClick: () => revokeKey(key.id),
+                        danger: true,
+                      },
+                    ]
+                  : [];
 
-                return (
-                  <li key={key.id} className="key-list__item">
-                    <div className="key-list__row">
-                      <div className="key-list__main">
-                        <div className="key-list__title">
-                          <span className="key-list__name">{key.name}</span>
-                          <StatusBadge>{key.status}</StatusBadge>
-                        </div>
-                        <div className="key-list__meta">
-                          <code>{key.key_prefix}…</code>
-                          <span>
-                            {key.last_used_at
-                              ? `Last used ${new Date(key.last_used_at).toLocaleDateString()}`
-                              : "Never used"}
-                          </span>
-                        </div>
-                        {(key.permissions?.length || metaParts.length) ? (
-                          <p className="key-list__detail">
-                            {formatPermissions(key.permissions ?? [])}
-                            {metaParts.length ? ` · ${metaParts.join(" · ")}` : null}
-                          </p>
-                        ) : null}
-                        {pct != null ? (
-                          <div className="key-usage">
-                            <div className="key-usage__label">
-                              ${spent.toFixed(2)} / ${limit!.toFixed(2)} this month
-                            </div>
-                            <div className="key-usage__track" aria-hidden>
-                              <div
-                                className="key-usage__fill"
-                                style={{ width: `${Math.round(pct * 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-
-                      {key.status === "active" ? (
-                        <div className="key-list__actions">
-                          <Button variant="ghost" onClick={() => startEdit(key)}>
-                            Edit
-                          </Button>
-                          <Button variant="ghost" onClick={() => rotateKey(key.id)}>
-                            Rotate
-                          </Button>
-                          <Button variant="ghost" onClick={() => revokeKey(key.id)}>
-                            Revoke
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {isEditing ? (
-                      <form onSubmit={saveEdit} className="key-form key-form--stacked key-form--edit">
-                        <KeyFormFields
-                          form={editForm}
-                          setForm={setEditForm}
-                          projectOptions={projectOptions}
-                          idPrefix={`edit-${key.id}`}
-                          showAdvancedToggle={false}
-                        />
-                        <div className="key-form__actions">
-                          <Button type="submit" variant="ink" disabled={saving}>
-                            {saving ? "Saving…" : "Save"}
-                          </Button>
-                          <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>
-                            Cancel
-                          </Button>
-                        </div>
-                      </form>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </DashboardPanel>
+              return (
+                <tr key={key.id}>
+                  <td>
+                    <span className="data-table__primary">{key.name}</span>
+                  </td>
+                  <td>
+                    <StatusBadge>{key.status}</StatusBadge>
+                  </td>
+                  <td>
+                    <code className="data-table__mono">{key.key_prefix}…</code>
+                  </td>
+                  <td className="data-table__date">{formatShortDate(key.created_at)}</td>
+                  <td className="data-table__meta">{formatShortDate(key.last_used_at)}</td>
+                  <td className="data-table__meta">
+                    {project ? project.slug : "All projects"}
+                  </td>
+                  <td className="data-table__amount tabular-nums">{formatSpend(key)}</td>
+                  <td className="data-table__actions">
+                    {actions.length ? <RowActions actions={actions} /> : null}
+                  </td>
+                </tr>
+              );
+            })}
+          </DataTable>
+        )}
 
         <DashboardPanel
           title="MCP clients"
@@ -582,6 +596,49 @@ export function ApiKeysManager({
           </p>
         </DashboardPanel>
       </div>
+
+      <LedgerModal open={createOpen} title="Create key" onClose={closeCreate}>
+        <form onSubmit={createKey} className="key-form key-form--stacked">
+          <KeyFormFields
+            form={form}
+            setForm={setForm}
+            projectOptions={projectOptions}
+            idPrefix="create"
+          />
+          <div className="key-form__actions">
+            <Button type="submit" variant="ink" disabled={creating || !form.permissions.length}>
+              {creating ? "Creating…" : "Create key"}
+            </Button>
+            <Button type="button" variant="ghost" onClick={closeCreate}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </LedgerModal>
+
+      <LedgerModal
+        open={Boolean(editingId)}
+        title={editingKey ? `Edit ${editingKey.name}` : "Edit key"}
+        onClose={closeEdit}
+      >
+        <form onSubmit={saveEdit} className="key-form key-form--stacked">
+          <KeyFormFields
+            form={editForm}
+            setForm={setEditForm}
+            projectOptions={projectOptions}
+            idPrefix={`edit-${editingId ?? "key"}`}
+            showAdvancedToggle={false}
+          />
+          <div className="key-form__actions">
+            <Button type="submit" variant="ink" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+            <Button type="button" variant="ghost" onClick={closeEdit}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </LedgerModal>
     </div>
   );
 }
