@@ -1,0 +1,136 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "CostMCP",
+    "subtitle": "Track costs with AI",
+    "description": "CostMCP helps your AI track and organize costs for you. Log subscriptions, purchases, API usage, token spending, hosting costs, and project expenses into one central dashboard. Ask your AI to add costs, check budgets, estimate usage, and see where your money is going across projects and tools.",
+    "category": "DEVELOPER_TOOLS"
+  },
+  "tools": {
+    "log_usage": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool appends a usage ledger entry (tokens, images, video, voice, etc.) to the authenticated user's workspace. It creates new records and does not only read existing data.",
+        "open_world_justification": "The tool writes only to the user's CostMCP workspace ledger. It does not call external AI provider APIs, browse the web, or act on third-party systems outside CostMCP.",
+        "destructive_justification": "The tool only creates append-only cost messages. CostMCP exposes no MCP tools to delete, void, or overwrite ledger records."
+      }
+    },
+    "add_expense": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool records a one-off expense or purchase in the user's project ledger. It inserts a new expense message and is not a read-only query.",
+        "open_world_justification": "Expenses are stored in the authenticated user's CostMCP workspace only. The tool does not charge payment methods, contact vendors, or modify external accounts.",
+        "destructive_justification": "The tool appends a ledger entry. No delete, bulk export, or billing-settings tools are exposed via MCP."
+      }
+    },
+    "add_subscription": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool logs a recurring subscription charge to a project ledger. It creates new subscription records rather than reading existing data.",
+        "open_world_justification": "Subscription entries are stored in the user's CostMCP workspace. The tool does not manage real billing relationships with external vendors.",
+        "destructive_justification": "The tool only appends subscription ledger entries. CostMCP does not expose MCP tools that delete or cancel external subscriptions."
+      }
+    },
+    "get_project_spend": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool queries the authenticated workspace for a project's spend total and recent ledger messages. It performs database reads only and does not modify data.",
+        "open_world_justification": "Results are limited to projects and cost messages in the user's authorized workspace. No external APIs or open-web lookups are performed.",
+        "destructive_justification": "The tool returns a JSON summary. It does not delete, update, or export bulk data."
+      }
+    },
+    "get_budget_status": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool reads workspace budget definitions and current-month spend to compute remaining budget and alert status. It does not write to the database.",
+        "open_world_justification": "Budget and spend data are scoped to the authenticated user's workspace. The tool does not access external financial systems.",
+        "destructive_justification": "The tool returns budget status JSON only. It cannot change budget limits or delete records."
+      }
+    },
+    "get_monthly_summary": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool aggregates the current month's spend across projects and message types. It is a read-only rollup query with no side effects.",
+        "open_world_justification": "The summary is computed from ledger data in the user's workspace. No third-party or open-web data sources are queried.",
+        "destructive_justification": "The tool returns summary JSON. It does not modify, delete, or bulk-export ledger data."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Agent logs OpenAI token usage against a named project.",
+      "user_prompt": "Log 1.2 million output tokens for OpenAI gpt-4o under my slideshow-studio project. Estimated cost is $3.60.",
+      "tools_triggered": "log_usage",
+      "expected_output": "Confirms a usage entry was recorded for slideshow-studio with the token quantity and estimated cost, and returns the created ledger message."
+    },
+    {
+      "description": "Agent records a one-off SaaS purchase as a project expense.",
+      "user_prompt": "Add a $29 Canva Pro purchase to my marketing-site project under the design category.",
+      "tools_triggered": "add_expense",
+      "expected_output": "Confirms an expense of $29 USD for Canva was logged to marketing-site and returns the expense record."
+    },
+    {
+      "description": "User asks for project spend drill-down for the current month.",
+      "user_prompt": "How much has slideshow-studio cost so far this month? Show me the breakdown.",
+      "tools_triggered": "get_project_spend",
+      "expected_output": "Returns total USD spend, message count, and recent ledger entries for slideshow-studio within the requested period."
+    },
+    {
+      "description": "User checks whether they are approaching a workspace budget limit.",
+      "user_prompt": "What's my remaining workspace budget this month? Am I close to the limit?",
+      "tools_triggered": "get_budget_status",
+      "expected_output": "Returns each workspace budget with spent amount, remaining amount, percent used, and whether an alert threshold (80%) was reached."
+    },
+    {
+      "description": "User requests a high-level monthly spend rollup across all projects.",
+      "user_prompt": "Give me this month's total AI spend across all my projects, split by usage, subscriptions, and expenses.",
+      "tools_triggered": "get_monthly_summary",
+      "expected_output": "Returns period=month with total_usd, usage_usd, subscription_usd, expense_usd, by_project totals, and top_project."
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "User requests deletion of ledger data — no destructive MCP tool exists.",
+      "user_prompt": "Delete all cost records for slideshow-studio from my ledger.",
+      "tools_triggered": "none",
+      "expected_output": "The assistant explains that CostMCP cannot delete ledger entries via MCP and does not call any CostMCP write tools."
+    },
+    {
+      "description": "User requests bulk export — not supported via MCP.",
+      "user_prompt": "Export my entire workspace ledger as a CSV download.",
+      "tools_triggered": "none",
+      "expected_output": "The assistant explains bulk export is not available through the connector and does not invoke CostMCP tools."
+    },
+    {
+      "description": "User asks to modify billing or budget settings — read/query tools only for budgets.",
+      "user_prompt": "Raise my workspace budget limit to $10,000 and update billing settings.",
+      "tools_triggered": "none",
+      "expected_output": "The assistant explains budget limits must be changed in the CostMCP dashboard; no MCP tool modifies billing or budget configuration."
+    }
+  ]
+}

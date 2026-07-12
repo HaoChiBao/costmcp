@@ -39,6 +39,11 @@ export function SiteFooter() {
 
           <div className="site-footer__col site-footer__col--meta">
             <p className="meta-label">Legal</p>
+            <nav className="site-footer__links" aria-label="Legal">
+              <Link href="/privacy">Privacy</Link>
+              <Link href="/terms">Terms</Link>
+              <Link href="/support">Support</Link>
+            </nav>
             <p className="site-footer__coords">© {year} CostMCP</p>
           </div>
         </div>
