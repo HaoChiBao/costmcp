@@ -688,10 +688,10 @@ a {
 @keyframes hook-pill-sway {
   0%,
   100% {
-    rotate: calc(var(--hook-sway-angle, 1.4deg) * -1);
+    rotate: calc(var(--hook-sway-angle, 1.4deg) * -1 + var(--hook-cursor-sway-deg, 0deg));
   }
   50% {
-    rotate: var(--hook-sway-angle, 1.4deg);
+    rotate: calc(var(--hook-sway-angle, 1.4deg) + var(--hook-cursor-sway-deg, 0deg));
   }
 }
 

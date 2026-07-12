@@ -22,6 +22,17 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+type SwayPhysics = {
+  angle: number;
+  velocity: number;
+};
+
+const CURSOR_SWAY_VELOCITY_SCALE = 0.0035;
+const CURSOR_SWAY_VERTICAL_SCALE = 0.0012;
+const CURSOR_SWAY_DAMPING = 0.9;
+const CURSOR_SWAY_SPRING = 0.07;
+const CURSOR_SWAY_MAX_DEG = 11;
+
 function HookImage({ className }: { className: string }) {
   return (
     <Image
@@ -39,6 +50,17 @@ export function LandingSpine({ children }: LandingSpineProps) {
   const spineRef = useRef<HTMLDivElement>(null);
   const [bobbing, setBobbing] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const swayPhysicsRef = useRef<Map<string, SwayPhysics>>(new Map());
+  const pointerRef = useRef({
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    lastX: 0,
+    lastY: 0,
+    lastTime: 0,
+    active: false,
+  });
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -171,6 +193,125 @@ export function LandingSpine({ children }: LandingSpineProps) {
     };
   }, [reduceMotion]);
 
+  useEffect(() => {
+    if (reduceMotion) return;
+
+    const spine = spineRef.current;
+    if (!spine) return;
+
+    const getSwayState = (id: string): SwayPhysics => {
+      let state = swayPhysicsRef.current.get(id);
+      if (!state) {
+        state = { angle: 0, velocity: 0 };
+        swayPhysicsRef.current.set(id, state);
+      }
+      return state;
+    };
+
+    const isPointerOverBill = (rect: DOMRect, x: number, y: number) => {
+      const padX = rect.width * 0.22;
+      return (
+        x >= rect.left - padX &&
+        x <= rect.right + padX &&
+        y >= rect.top &&
+        y <= rect.bottom
+      );
+    };
+
+    const applyCursorImpulse = () => {
+      const pointer = pointerRef.current;
+      if (!pointer.active) return;
+
+      const swayTargets = spine.querySelectorAll<HTMLElement>("[data-hook-id]");
+      swayTargets.forEach((el) => {
+        const id = el.dataset.hookId;
+        if (!id) return;
+
+        const rect = el.getBoundingClientRect();
+        if (!isPointerOverBill(rect, pointer.x, pointer.y)) return;
+
+        const state = getSwayState(id);
+        state.velocity +=
+          pointer.vx * CURSOR_SWAY_VELOCITY_SCALE +
+          pointer.vy * CURSOR_SWAY_VERTICAL_SCALE;
+      });
+    };
+
+    let physicsFrame = 0;
+
+    const tickPhysics = () => {
+      const swayTargets = spine.querySelectorAll<HTMLElement>("[data-hook-id]");
+      let moving = false;
+
+      swayTargets.forEach((el) => {
+        const id = el.dataset.hookId;
+        if (!id) return;
+
+        const state = getSwayState(id);
+        state.velocity += -state.angle * CURSOR_SWAY_SPRING;
+        state.velocity *= CURSOR_SWAY_DAMPING;
+        state.angle += state.velocity;
+        state.angle = clamp(state.angle, -CURSOR_SWAY_MAX_DEG, CURSOR_SWAY_MAX_DEG);
+
+        if (Math.abs(state.angle) > 0.02 || Math.abs(state.velocity) > 0.02) {
+          moving = true;
+        } else {
+          state.angle = 0;
+          state.velocity = 0;
+        }
+
+        el.style.setProperty("--hook-cursor-sway-deg", `${state.angle}deg`);
+      });
+
+      if (moving || pointerRef.current.active) {
+        physicsFrame = requestAnimationFrame(tickPhysics);
+      } else {
+        physicsFrame = 0;
+      }
+    };
+
+    const ensurePhysicsLoop = () => {
+      if (!physicsFrame) physicsFrame = requestAnimationFrame(tickPhysics);
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      const pointer = pointerRef.current;
+      const now = performance.now();
+      const dt = pointer.lastTime > 0 ? Math.min(now - pointer.lastTime, 48) : 16;
+
+      if (pointer.lastTime > 0 && dt > 0) {
+        const rawVx = ((event.clientX - pointer.lastX) / dt) * 16;
+        const rawVy = ((event.clientY - pointer.lastY) / dt) * 16;
+        pointer.vx = pointer.vx * 0.55 + rawVx * 0.45;
+        pointer.vy = pointer.vy * 0.55 + rawVy * 0.45;
+      }
+
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      pointer.lastX = event.clientX;
+      pointer.lastY = event.clientY;
+      pointer.lastTime = now;
+      pointer.active = true;
+
+      applyCursorImpulse();
+      ensurePhysicsLoop();
+    };
+
+    const onPointerLeave = () => {
+      pointerRef.current.active = false;
+    };
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", onPointerLeave);
+
+    return () => {
+      cancelAnimationFrame(physicsFrame);
+      window.removeEventListener("pointermove", onPointerMove);
+      document.documentElement.removeEventListener("pointerleave", onPointerLeave);
+      swayPhysicsRef.current.clear();
+    };
+  }, [reduceMotion]);
+
   const startBobbing = useCallback(() => {
     if (reduceMotion) return;
     setBobbing(true);
@@ -231,6 +372,7 @@ export function LandingSpine({ children }: LandingSpineProps) {
           >
             <div
               className={`landing-spine__hook-sway${reduceMotion ? " landing-spine__hook-sway--still" : ""}`}
+              data-hook-id="center"
               style={
                 {
                   "--hook-sway-duration": "5.4s",
