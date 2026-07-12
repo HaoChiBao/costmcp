@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CodeBlock, CopyRow } from "@/components/dashboard/dashboard-code";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
 import { FieldSelect } from "@/components/ui/field-select";
 import { FormField } from "@/components/ui/form-field";
 import { LedgerModal } from "@/components/ui/ledger-modal";
 import { MenuSelect } from "@/components/ui/menu-select";
-import { DashboardPanel, StatusBadge } from "@/components/ui/panel";
+import { DashboardPanel } from "@/components/ui/panel";
 import { RowActions } from "@/components/ui/row-actions";
+import { environmentTone } from "@/lib/org-colors";
 import { createClient } from "@/lib/supabase/client";
 
 type KeyConditions = {
@@ -57,17 +57,6 @@ const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
   { value: "revoked", label: "Revoked" },
-];
-
-const KEY_TABLE_COLUMNS = [
-  { id: "name", header: "Name" },
-  { id: "status", header: "Status" },
-  { id: "secret", header: "Secret key" },
-  { id: "created", header: "Created" },
-  { id: "last_used", header: "Last used" },
-  { id: "project", header: "Project" },
-  { id: "spend", header: "Spend", align: "right" as const },
-  { id: "actions", header: "", className: "data-table__actions-col" },
 ];
 
 type KeyFormState = {
@@ -141,6 +130,23 @@ function formatSpend(key: ApiKey) {
     return `$${spent.toFixed(2)} / $${key.monthly_limit.toFixed(2)}`;
   }
   return `$${spent.toFixed(2)}`;
+}
+
+function keyInitial(name: string) {
+  const trimmed = name.trim();
+  return (trimmed.charAt(0) || "K").toUpperCase();
+}
+
+function keyEnvTone(environment: string) {
+  return environmentTone(environment === "test" ? "development" : "production");
+}
+
+function keyMeta(key: ApiKey, projectSlug: string | null) {
+  const parts = [`${key.key_prefix}…`];
+  if (projectSlug) parts.push(projectSlug);
+  else parts.push("all projects");
+  if (key.environment === "test") parts.push("test");
+  return parts.join(" · ");
 }
 
 function KeyFormFields({
@@ -531,63 +537,80 @@ export function ApiKeysManager({
         </div>
 
         {loading ? (
-          <p className="dashboard-panel__empty">Loading…</p>
+          <p className="keys-feed__empty">Loading…</p>
+        ) : !filteredKeys.length ? (
+          <p className="keys-feed__empty">
+            {keys.length
+              ? "No keys match this filter."
+              : "No API keys yet. Create a key to get started."}
+          </p>
         ) : (
-          <DataTable
-            columns={KEY_TABLE_COLUMNS}
-            isEmpty={!filteredKeys.length}
-            empty={
-              keys.length
-                ? "No keys match this filter."
-                : "No API keys yet. Create a key to get started."
-            }
-            flush
-            compact
-          >
-            {filteredKeys.map((key) => {
-              const project = key.project_id ? projectById.get(key.project_id) : null;
-              const actions =
-                key.status === "active"
-                  ? [
-                      { label: "Edit", onClick: () => startEdit(key) },
-                      { label: "Rotate", onClick: () => rotateKey(key.id) },
-                      {
-                        label: "Revoke",
-                        onClick: () => revokeKey(key.id),
-                        danger: true,
-                      },
-                    ]
-                  : [];
+          <div className="keys-feed">
+            <div className="keys-feed__head" aria-hidden="true">
+              <span className="keys-feed__head-spacer" />
+              <span>Name</span>
+              <span>Key</span>
+              <span>Status</span>
+              <span className="keys-feed__head-date">Last used</span>
+              <span className="keys-feed__head-amount">Spend</span>
+              <span className="keys-feed__head-spacer keys-feed__head-spacer--actions" />
+            </div>
+            <ul className="keys-feed__list">
+              {filteredKeys.map((key) => {
+                const project = key.project_id ? projectById.get(key.project_id) : null;
+                const tone = keyEnvTone(key.environment);
+                const isSelected = key.id === editingId;
+                const actions =
+                  key.status === "active"
+                    ? [
+                        { label: "Edit", onClick: () => startEdit(key) },
+                        { label: "Rotate", onClick: () => rotateKey(key.id) },
+                        {
+                          label: "Revoke",
+                          onClick: () => revokeKey(key.id),
+                          danger: true,
+                        },
+                      ]
+                    : [];
 
-              return (
-                <tr key={key.id}>
-                  <td>
-                    <span className="data-table__primary">{key.name}</span>
-                  </td>
-                  <td>
-                    <StatusBadge>{key.status}</StatusBadge>
-                  </td>
-                  <td>
-                    <code className="data-table__mono">{key.key_prefix}…</code>
-                  </td>
-                  <td className="data-table__date">{formatShortDate(key.created_at)}</td>
-                  <td className="data-table__meta">{formatShortDate(key.last_used_at)}</td>
-                  <td className="data-table__meta">
-                    {project ? project.slug : "All projects"}
-                  </td>
-                  <td className="data-table__amount tabular-nums">{formatSpend(key)}</td>
-                  <td className="data-table__actions">
-                    {actions.length ? <RowActions actions={actions} /> : null}
-                  </td>
-                </tr>
-              );
-            })}
-          </DataTable>
+                return (
+                  <li key={key.id}>
+                    <div
+                      className={`keys-row${isSelected ? " keys-row--selected" : ""}`}
+                    >
+                      <span
+                        className="keys-row__icon"
+                        style={{ backgroundColor: tone.bg, color: tone.color }}
+                        aria-hidden="true"
+                      >
+                        {keyInitial(key.name)}
+                      </span>
+                      <span className="keys-row__label">{key.name}</span>
+                      <span className="keys-row__meta">
+                        {keyMeta(key, project?.slug ?? null)}
+                      </span>
+                      <span className="keys-row__status">{key.status}</span>
+                      <span className="keys-row__date">
+                        {formatShortDate(key.last_used_at)}
+                      </span>
+                      <span className="keys-row__amount tabular-nums">
+                        {formatSpend(key)}
+                      </span>
+                      <span className="keys-row__actions">
+                        {actions.length ? <RowActions actions={actions} /> : null}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
 
         <DashboardPanel
           title="MCP clients"
           description="For clients without OAuth, bridge with mcp-remote and pass the key as a header."
+          className="keys-mcp-panel"
         >
           <CodeBlock code={buildMcpApiKeySnippet(mcpUrl, freshSecret)} />
           <p className="connections__hint">
