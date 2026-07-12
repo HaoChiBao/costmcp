@@ -15,6 +15,11 @@ const SWITCH_MS = 800;
 const HEADLINE_SCALE = 1.5;
 /** Cost is 3× the width-matched baseline, scaled with the headline, then tuned down. */
 const COST_SIZE_MULTIPLIER = ((3 * HEADLINE_SCALE) / 1.5) * 1.2;
+const MOBILE_COST_SIZE_MULTIPLIER = 1.35;
+
+function costSizeMultiplier(viewportWidth: number) {
+  return viewportWidth < 768 ? MOBILE_COST_SIZE_MULTIPLIER : COST_SIZE_MULTIPLIER;
+}
 
 function HeadlineWord({ children }: { children: string }) {
   return (
@@ -92,13 +97,18 @@ export function HeroHeadline() {
         size -= 1;
       }
 
-      let finalSize = size * COST_SIZE_MULTIPLIER;
+      let finalSize = size * costSizeMultiplier(window.innerWidth);
       const maxWidth = Math.min(window.innerWidth * 0.92, ((864 * HEADLINE_SCALE) / 1.5) * 1.2);
+      const maxCostSize = window.innerWidth < 768 ? window.innerWidth * 0.24 : Infinity;
 
       cost.style.fontSize = `${finalSize}px`;
       while (cost.scrollWidth > maxWidth && finalSize > 48) {
         finalSize -= 1;
         cost.style.fontSize = `${finalSize}px`;
+      }
+
+      if (Number.isFinite(maxCostSize)) {
+        finalSize = Math.min(finalSize, maxCostSize);
       }
 
       cost.style.fontSize = "";
