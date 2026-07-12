@@ -36,6 +36,16 @@ const CURSOR_MAX_SPEED = 1.6;
 const CURSOR_VELOCITY_IMPULSE = 9;
 const CURSOR_VERTICAL_RATIO = 0.22;
 const CURSOR_MIN_SPEED = 0.04;
+const CENTER_CURSOR_SWAY_MIN_FACTOR = 1 / 3;
+
+function centerCursorSwayFactor(scrollScale: number) {
+  const progress = clamp(
+    (scrollScale - CENTER_SCROLL_SCALE_START) / (CENTER_SCROLL_SCALE_END - CENTER_SCROLL_SCALE_START),
+    0,
+    1,
+  );
+  return 1 - progress * (1 - CENTER_CURSOR_SWAY_MIN_FACTOR);
+}
 
 function HookImage({ className }: { className: string }) {
   return (
@@ -254,6 +264,13 @@ export function LandingSpine({ children }: LandingSpineProps) {
       const impulse =
         normalized * (nx * CURSOR_VELOCITY_IMPULSE + ny * CURSOR_VELOCITY_IMPULSE * CURSOR_VERTICAL_RATIO);
 
+      const centerScrollScale = Number.parseFloat(
+        getComputedStyle(spine).getPropertyValue("--center-scroll-scale"),
+      );
+      const centerImpulseScale = centerCursorSwayFactor(
+        Number.isFinite(centerScrollScale) ? centerScrollScale : CENTER_SCROLL_SCALE_START,
+      );
+
       const swayTargets = spine.querySelectorAll<HTMLElement>("[data-hook-id]");
       swayTargets.forEach((el) => {
         const id = el.dataset.hookId;
@@ -265,7 +282,8 @@ export function LandingSpine({ children }: LandingSpineProps) {
         const rect = img.getBoundingClientRect();
         if (!isPointerOverBill(rect, pointer.x, pointer.y)) return;
 
-        getSwayState(id, el).offsetVelocity -= impulse;
+        const billImpulse = id === "center" ? impulse * centerImpulseScale : impulse;
+        getSwayState(id, el).offsetVelocity -= billImpulse;
       });
     };
 
