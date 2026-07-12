@@ -44,6 +44,8 @@ const ALL_PERMISSIONS: Array<{ id: string; label: string }> = [
   { id: "estimate_costs", label: "Estimate costs" },
 ];
 
+const PERMISSION_LABEL = Object.fromEntries(ALL_PERMISSIONS.map((p) => [p.id, p.label]));
+
 const DEFAULT_PERMS = ALL_PERMISSIONS.map((p) => p.id);
 
 type KeyFormState = {
@@ -99,6 +101,136 @@ function buildMcpApiKeySnippet(mcpUrl: string, secret: string | null) {
     },
     null,
     2,
+  );
+}
+
+function formatPermissions(permissions: string[]) {
+  return permissions.map((p) => PERMISSION_LABEL[p] ?? p).join(" · ");
+}
+
+function KeyFormFields({
+  form,
+  setForm,
+  projectOptions,
+  idPrefix,
+  showAdvancedToggle = true,
+}: {
+  form: KeyFormState;
+  setForm: React.Dispatch<React.SetStateAction<KeyFormState>>;
+  projectOptions: Array<{ value: string; label: string }>;
+  idPrefix: string;
+  showAdvancedToggle?: boolean;
+}) {
+  return (
+    <>
+      <FormField
+        id={`${idPrefix}-name`}
+        label="Key name"
+        value={form.name}
+        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+        placeholder="Production server, CI pipeline…"
+        required
+      />
+
+      <fieldset className="key-perms">
+        <legend className="field__label">Permissions</legend>
+        <div className="key-perms__grid">
+          {ALL_PERMISSIONS.map((perm) => (
+            <label key={perm.id} className="key-check">
+              <input
+                type="checkbox"
+                checked={form.permissions.includes(perm.id)}
+                onChange={(e) => {
+                  setForm((f) => ({
+                    ...f,
+                    permissions: e.target.checked
+                      ? [...f.permissions, perm.id]
+                      : f.permissions.filter((p) => p !== perm.id),
+                  }));
+                }}
+              />
+              {perm.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="key-form__row">
+        <SelectField
+          id={`${idPrefix}-project`}
+          label="Project scope"
+          value={form.project_id}
+          onChange={(e) => setForm((f) => ({ ...f, project_id: e.target.value }))}
+          options={projectOptions}
+        />
+        <FormField
+          id={`${idPrefix}-limit`}
+          label="Monthly limit (USD)"
+          type="number"
+          min="0"
+          step="0.01"
+          value={form.monthly_limit}
+          onChange={(e) => setForm((f) => ({ ...f, monthly_limit: e.target.value }))}
+          placeholder="Unlimited"
+        />
+        <FormField
+          id={`${idPrefix}-expires`}
+          label="Expires"
+          type="datetime-local"
+          value={form.expires_at}
+          onChange={(e) => setForm((f) => ({ ...f, expires_at: e.target.value }))}
+        />
+      </div>
+
+      {showAdvancedToggle ? (
+        <button
+          type="button"
+          className="key-advanced-toggle"
+          onClick={() => setForm((f) => ({ ...f, showAdvanced: !f.showAdvanced }))}
+        >
+          {form.showAdvanced ? "Hide advanced" : "Advanced"}
+        </button>
+      ) : null}
+
+      {form.showAdvanced || !showAdvancedToggle ? (
+        <div className="key-form__row">
+          {showAdvancedToggle ? (
+            <SelectField
+              id={`${idPrefix}-env`}
+              label="Environment"
+              value={form.environment}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  environment: e.target.value === "test" ? "test" : "live",
+                }))
+              }
+              options={[
+                { value: "live", label: "Live" },
+                { value: "test", label: "Test" },
+              ]}
+            />
+          ) : null}
+          <FormField
+            id={`${idPrefix}-rpm`}
+            label="Rate limit (req/min)"
+            type="number"
+            min="1"
+            step="1"
+            value={form.rate_limit_rpm}
+            onChange={(e) => setForm((f) => ({ ...f, rate_limit_rpm: e.target.value }))}
+            placeholder="Unlimited"
+          />
+          <FormField
+            id={`${idPrefix}-cidrs`}
+            label="Allowed CIDRs"
+            value={form.allowed_cidrs}
+            onChange={(e) => setForm((f) => ({ ...f, allowed_cidrs: e.target.value }))}
+            placeholder="203.0.113.0/24, 198.51.100.10"
+          />
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -293,324 +425,160 @@ export function ApiKeysManager({
     ...projects.map((p) => ({ value: p.id, label: `${p.name} (${p.slug})` })),
   ];
 
+  const activeCount = keys.filter((k) => k.status === "active").length;
+
   return (
     <div className="dashboard-page">
       <header className="dashboard-page__header">
         <h1 className="dashboard-page__title">API keys</h1>
         <p className="dashboard-page__sub">
-          Generate keys for CI pipelines, SDKs, and scripts. Attach permissions, project scope,
-          spend caps, and expiry. Secrets are shown once.
+          For CI, SDKs, and scripts. Secrets are shown once.
         </p>
       </header>
 
-      <div className="dashboard-page__body">
+      <div className="dashboard-page__body dashboard-page__body--narrow">
         {error ? <p className="form-error">{error}</p> : null}
 
         {freshSecret ? (
           <div className="key-reveal">
-            <p className="key-reveal__label">New key (copy it now — it won&apos;t be shown again):</p>
-            <CopyRow value={freshSecret} mono />
+            <div className="key-reveal__content">
+              <p className="key-reveal__label">Copy this key now — it won&apos;t be shown again</p>
+              <CopyRow value={freshSecret} mono />
+            </div>
             <Button variant="ghost" onClick={() => setFreshSecret(null)}>
               Done
             </Button>
           </div>
         ) : null}
 
-        <div className="dashboard-page__grid dashboard-page__grid--split">
-          <DashboardPanel
-            title="Create key"
-            description="Name the key and set permissions before issuing it to a service."
-          >
-            <form onSubmit={createKey} className="key-form key-form--stacked">
-              <FormField
-                label="Key name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Production server, CI pipeline…"
-                required
-              />
-
-              <fieldset className="key-perms">
-                <legend className="field__label">Permissions</legend>
-                <div className="key-perms__grid">
-                  {ALL_PERMISSIONS.map((perm) => (
-                    <label key={perm.id} className="key-check">
-                      <input
-                        type="checkbox"
-                        checked={form.permissions.includes(perm.id)}
-                        onChange={(e) => {
-                          setForm((f) => ({
-                            ...f,
-                            permissions: e.target.checked
-                              ? [...f.permissions, perm.id]
-                              : f.permissions.filter((p) => p !== perm.id),
-                          }));
-                        }}
-                      />
-                      {perm.label}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              <div className="key-form__row">
-                <SelectField
-                  label="Project scope"
-                  value={form.project_id}
-                  onChange={(e) => setForm((f) => ({ ...f, project_id: e.target.value }))}
-                  options={projectOptions}
-                />
-                <FormField
-                  label="Monthly limit (USD)"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.monthly_limit}
-                  onChange={(e) => setForm((f) => ({ ...f, monthly_limit: e.target.value }))}
-                  placeholder="Unlimited"
-                />
-                <FormField
-                  label="Expires"
-                  type="datetime-local"
-                  value={form.expires_at}
-                  onChange={(e) => setForm((f) => ({ ...f, expires_at: e.target.value }))}
-                />
-              </div>
-
-              <button
-                type="button"
-                className="key-advanced-toggle"
-                onClick={() => setForm((f) => ({ ...f, showAdvanced: !f.showAdvanced }))}
-              >
-                {form.showAdvanced ? "Hide advanced" : "Advanced conditions"}
-              </button>
-
-              {form.showAdvanced ? (
-                <div className="key-form__row">
-                  <SelectField
-                    label="Environment"
-                    value={form.environment}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        environment: e.target.value === "test" ? "test" : "live",
-                      }))
-                    }
-                    options={[
-                      { value: "live", label: "Live" },
-                      { value: "test", label: "Test" },
-                    ]}
-                  />
-                  <FormField
-                    label="Rate limit (req/min)"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={form.rate_limit_rpm}
-                    onChange={(e) => setForm((f) => ({ ...f, rate_limit_rpm: e.target.value }))}
-                    placeholder="Unlimited"
-                  />
-                  <FormField
-                    label="Allowed CIDRs"
-                    value={form.allowed_cidrs}
-                    onChange={(e) => setForm((f) => ({ ...f, allowed_cidrs: e.target.value }))}
-                    placeholder="203.0.113.0/24, 198.51.100.10"
-                  />
-                </div>
-              ) : null}
-
+        <DashboardPanel title="Create key">
+          <form onSubmit={createKey} className="key-form key-form--stacked">
+            <KeyFormFields
+              form={form}
+              setForm={setForm}
+              projectOptions={projectOptions}
+              idPrefix="create"
+            />
+            <div className="key-form__actions">
               <Button type="submit" variant="ink" disabled={creating || !form.permissions.length}>
                 {creating ? "Creating…" : "Create key"}
               </Button>
-            </form>
-          </DashboardPanel>
+            </div>
+          </form>
+        </DashboardPanel>
 
-          <DashboardPanel
-            title="Active keys"
-            description={
-              keys.length
-                ? `${keys.filter((k) => k.status === "active").length} active · ${keys.length} total`
-                : "Keys issued for this workspace appear here."
-            }
-          >
-            {loading ? (
-              <p className="dashboard-panel__empty">Loading…</p>
-            ) : keys.length === 0 ? (
-              <p className="dashboard-panel__empty">No API keys yet.</p>
-            ) : (
-              <ul className="connection-list">
-                {keys.map((key) => {
-                  const project = key.project_id ? projectById.get(key.project_id) : null;
-                  const limit = key.monthly_limit;
-                  const spent = key.spent_usd ?? 0;
-                  const pct = limit && limit > 0 ? Math.min(1, spent / limit) : null;
-                  const isEditing = editingId === key.id;
+        <DashboardPanel
+          title="Keys"
+          description={
+            keys.length ? `${activeCount} active · ${keys.length} total` : "No keys yet."
+          }
+        >
+          {loading ? (
+            <p className="dashboard-panel__empty">Loading…</p>
+          ) : keys.length === 0 ? (
+            <p className="dashboard-panel__empty">Create a key above to get started.</p>
+          ) : (
+            <ul className="key-list">
+              {keys.map((key) => {
+                const project = key.project_id ? projectById.get(key.project_id) : null;
+                const limit = key.monthly_limit;
+                const spent = key.spent_usd ?? 0;
+                const pct = limit && limit > 0 ? Math.min(1, spent / limit) : null;
+                const isEditing = editingId === key.id;
+                const metaParts = [
+                  project ? project.slug : "All projects",
+                  key.expires_at
+                    ? `Expires ${new Date(key.expires_at).toLocaleDateString()}`
+                    : null,
+                  key.rate_limit_rpm ? `${key.rate_limit_rpm}/min` : null,
+                ].filter(Boolean);
 
-                  return (
-                    <li key={key.id} className="connection-list__item connection-list__item--block">
-                      <div className="connection-list__header">
-                        <div className="connection-list__main">
-                          <span className="connection-list__name">{key.name}</span>
+                return (
+                  <li key={key.id} className="key-list__item">
+                    <div className="key-list__row">
+                      <div className="key-list__main">
+                        <div className="key-list__title">
+                          <span className="key-list__name">{key.name}</span>
                           <StatusBadge>{key.status}</StatusBadge>
-                          <code className="connection-list__meta">{key.key_prefix}…</code>
-                          <span className="connection-list__meta">
+                        </div>
+                        <div className="key-list__meta">
+                          <code>{key.key_prefix}…</code>
+                          <span>
                             {key.last_used_at
                               ? `Last used ${new Date(key.last_used_at).toLocaleDateString()}`
                               : "Never used"}
                           </span>
                         </div>
-                        {key.status === "active" ? (
-                          <div className="connection-list__actions">
-                            <Button variant="ghost" onClick={() => startEdit(key)}>
-                              Edit
-                            </Button>
-                            <Button variant="ghost" onClick={() => rotateKey(key.id)}>
-                              Rotate
-                            </Button>
-                            <Button variant="ghost" onClick={() => revokeKey(key.id)}>
-                              Revoke
-                            </Button>
+                        {(key.permissions?.length || metaParts.length) ? (
+                          <p className="key-list__detail">
+                            {formatPermissions(key.permissions ?? [])}
+                            {metaParts.length ? ` · ${metaParts.join(" · ")}` : null}
+                          </p>
+                        ) : null}
+                        {pct != null ? (
+                          <div className="key-usage">
+                            <div className="key-usage__label">
+                              ${spent.toFixed(2)} / ${limit!.toFixed(2)} this month
+                            </div>
+                            <div className="key-usage__track" aria-hidden>
+                              <div
+                                className="key-usage__fill"
+                                style={{ width: `${Math.round(pct * 100)}%` }}
+                              />
+                            </div>
                           </div>
                         ) : null}
                       </div>
 
-                      <div className="key-meta-chips">
-                        {(key.permissions ?? []).map((p) => (
-                          <span key={p} className="key-chip">
-                            {p}
-                          </span>
-                        ))}
-                        <span className="key-chip">
-                          {project ? `Project: ${project.slug}` : "All projects"}
-                        </span>
-                        {key.expires_at ? (
-                          <span className="key-chip">
-                            Expires {new Date(key.expires_at).toLocaleDateString()}
-                          </span>
-                        ) : null}
-                        {key.rate_limit_rpm ? (
-                          <span className="key-chip">{key.rate_limit_rpm}/min</span>
-                        ) : null}
-                      </div>
-
-                      {pct != null ? (
-                        <div className="key-usage">
-                          <div className="key-usage__label">
-                            ${spent.toFixed(2)} / ${limit!.toFixed(2)} this month
-                          </div>
-                          <div className="key-usage__track" aria-hidden>
-                            <div
-                              className="key-usage__fill"
-                              style={{ width: `${Math.round(pct * 100)}%` }}
-                            />
-                          </div>
+                      {key.status === "active" ? (
+                        <div className="key-list__actions">
+                          <Button variant="ghost" onClick={() => startEdit(key)}>
+                            Edit
+                          </Button>
+                          <Button variant="ghost" onClick={() => rotateKey(key.id)}>
+                            Rotate
+                          </Button>
+                          <Button variant="ghost" onClick={() => revokeKey(key.id)}>
+                            Revoke
+                          </Button>
                         </div>
                       ) : null}
+                    </div>
 
-                      {isEditing ? (
-                        <form onSubmit={saveEdit} className="key-form key-form--stacked key-form--edit">
-                          <FormField
-                            label="Key name"
-                            value={editForm.name}
-                            onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                            required
-                          />
-                          <fieldset className="key-perms">
-                            <legend className="field__label">Permissions</legend>
-                            <div className="key-perms__grid">
-                              {ALL_PERMISSIONS.map((perm) => (
-                                <label key={perm.id} className="key-check">
-                                  <input
-                                    type="checkbox"
-                                    checked={editForm.permissions.includes(perm.id)}
-                                    onChange={(e) => {
-                                      setEditForm((f) => ({
-                                        ...f,
-                                        permissions: e.target.checked
-                                          ? [...f.permissions, perm.id]
-                                          : f.permissions.filter((p) => p !== perm.id),
-                                      }));
-                                    }}
-                                  />
-                                  {perm.label}
-                                </label>
-                              ))}
-                            </div>
-                          </fieldset>
-                          <div className="key-form__row">
-                            <SelectField
-                              label="Project scope"
-                              value={editForm.project_id}
-                              onChange={(e) =>
-                                setEditForm((f) => ({ ...f, project_id: e.target.value }))
-                              }
-                              options={projectOptions}
-                            />
-                            <FormField
-                              label="Monthly limit (USD)"
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={editForm.monthly_limit}
-                              onChange={(e) =>
-                                setEditForm((f) => ({ ...f, monthly_limit: e.target.value }))
-                              }
-                            />
-                            <FormField
-                              label="Expires"
-                              type="datetime-local"
-                              value={editForm.expires_at}
-                              onChange={(e) =>
-                                setEditForm((f) => ({ ...f, expires_at: e.target.value }))
-                              }
-                            />
-                          </div>
-                          <div className="key-form__row">
-                            <FormField
-                              label="Rate limit (req/min)"
-                              type="number"
-                              min="1"
-                              value={editForm.rate_limit_rpm}
-                              onChange={(e) =>
-                                setEditForm((f) => ({ ...f, rate_limit_rpm: e.target.value }))
-                              }
-                            />
-                            <FormField
-                              label="Allowed CIDRs"
-                              value={editForm.allowed_cidrs}
-                              onChange={(e) =>
-                                setEditForm((f) => ({ ...f, allowed_cidrs: e.target.value }))
-                              }
-                            />
-                          </div>
-                          <div className="connection-list__actions">
-                            <Button type="submit" variant="ink" disabled={saving}>
-                              {saving ? "Saving…" : "Save conditions"}
-                            </Button>
-                            <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>
-                              Cancel
-                            </Button>
-                          </div>
-                        </form>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </DashboardPanel>
-        </div>
+                    {isEditing ? (
+                      <form onSubmit={saveEdit} className="key-form key-form--stacked key-form--edit">
+                        <KeyFormFields
+                          form={editForm}
+                          setForm={setEditForm}
+                          projectOptions={projectOptions}
+                          idPrefix={`edit-${key.id}`}
+                          showAdvancedToggle={false}
+                        />
+                        <div className="key-form__actions">
+                          <Button type="submit" variant="ink" disabled={saving}>
+                            {saving ? "Saving…" : "Save"}
+                          </Button>
+                          <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </form>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </DashboardPanel>
 
         <DashboardPanel
-          className="dashboard-page__full"
-          title="Use with MCP clients"
-          description="For clients that don't support OAuth, bridge with mcp-remote and pass your API key as a header."
+          title="MCP clients"
+          description="For clients without OAuth, bridge with mcp-remote and pass the key as a header."
         >
           <CodeBlock code={buildMcpApiKeySnippet(mcpUrl, freshSecret)} />
           <p className="connections__hint">
             Prefer OAuth when possible — see{" "}
-            <Link href={`/dashboard/${workspaceSlug}/connections`}>Connections</Link> for
-            Cursor, Claude, and ChatGPT setup.
+            <Link href={`/dashboard/${workspaceSlug}/connections`}>Connections</Link>.
           </p>
         </DashboardPanel>
       </div>
