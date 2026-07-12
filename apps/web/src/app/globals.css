@@ -2442,16 +2442,14 @@ a {
 .dashboard-nav__user {
   position: relative;
   margin-top: auto;
-  padding-top: var(--spacing-16);
-  border-top: 1px solid var(--color-hairline);
 }
 
 .dashboard-nav__user-btn {
   display: flex;
   align-items: center;
-  gap: var(--spacing-12);
+  gap: var(--spacing-8);
   width: 100%;
-  padding: var(--spacing-8);
+  padding: var(--spacing-8) var(--spacing-12);
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -2467,28 +2465,16 @@ a {
   background: color-mix(in srgb, var(--color-hairline) 55%, transparent);
 }
 
-.dashboard-nav__user-caret {
-  display: inline-flex;
-  flex-shrink: 0;
-  margin-left: auto;
-  color: var(--color-ash);
-  transition: transform var(--transition-fast);
-}
-
-.dashboard-nav__user-btn[aria-expanded="true"] .dashboard-nav__user-caret {
-  transform: rotate(180deg);
-}
-
 .dashboard-nav__avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
-  background: #3d8b6e;
+  background: var(--color-headline-ink);
   color: #fff;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
   overflow: hidden;
@@ -2503,25 +2489,27 @@ a {
 .dashboard-nav__user-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
 .dashboard-nav__user-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: var(--font-weight-regular);
   color: var(--color-headline-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.3;
 }
 
 .dashboard-nav__user-email {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--color-ash);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.3;
 }
 
 .dashboard-nav__user-menu {
