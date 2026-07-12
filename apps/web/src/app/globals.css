@@ -2924,6 +2924,7 @@ a {
 
 .activity-row__label,
 .activity-row__meta,
+.activity-row__type,
 .activity-row__date,
 .activity-row__amount {
   min-width: 0;
@@ -2945,18 +2946,12 @@ a {
 }
 
 .activity-row__type {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
   width: 7.25rem;
   min-width: 7.25rem;
-}
-
-.activity-row__type-pill {
-  padding: 2px 7px;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: var(--font-weight-regular);
-  letter-spacing: 0.04em;
+  color: var(--color-ash);
+  text-transform: none;
 }
 
 .activity-row__date {
