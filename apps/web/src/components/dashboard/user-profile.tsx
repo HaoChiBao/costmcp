@@ -76,17 +76,6 @@ export function UserProfile({
           <span className="dashboard-nav__user-name">{name}</span>
           {email ? <span className="dashboard-nav__user-email">{email}</span> : null}
         </span>
-        <span className="dashboard-nav__user-caret" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M3.5 5.25 7 8.75l3.5-3.5"
-              stroke="currentColor"
-              strokeWidth="1.25"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
       </button>
 
       {open ? (
