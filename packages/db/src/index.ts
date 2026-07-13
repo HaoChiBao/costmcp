@@ -297,6 +297,162 @@ export async function upsertProjectBySlug(
   return data;
 }
 
+export type CreateProjectInput = {
+  slug: string;
+  name: string;
+  description?: string;
+  budget?: number;
+  currency?: string;
+  environment?: "development" | "staging" | "production" | "other";
+};
+
+export class ProjectConflictError extends Error {
+  constructor(slug: string) {
+    super(`Project "${slug}" already exists`);
+    this.name = "ProjectConflictError";
+  }
+}
+
+export async function createProject(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  input: CreateProjectInput,
+) {
+  const existing = await findProjectBySlug(client, workspaceId, input.slug);
+  if (existing) throw new ProjectConflictError(input.slug);
+
+  const { data, error } = await client
+    .from("projects")
+    .insert({
+      workspace_id: workspaceId,
+      slug: input.slug,
+      name: input.name,
+      description: input.description ?? null,
+      budget: input.budget ?? null,
+      currency: input.currency ?? "USD",
+      environment: input.environment ?? "production",
+    })
+    .select("id, slug, name, description, budget, currency, environment, created_at")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export type ProjectSummary = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  budget: number | null;
+  currency: string;
+  environment: string;
+  status: string;
+  archived: boolean;
+  collection_id: string | null;
+  created_at: string;
+};
+
+export async function listProjects(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  opts?: { includeArchived?: boolean },
+): Promise<ProjectSummary[]> {
+  let query = client
+    .from("projects")
+    .select(
+      "id, slug, name, description, budget, currency, environment, status, archived, collection_id, created_at",
+    )
+    .eq("workspace_id", workspaceId)
+    .order("sort_order")
+    .order("name");
+
+  if (!opts?.includeArchived) {
+    query = query.eq("archived", false);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as ProjectSummary[];
+}
+
+export type UpdateProjectInput = {
+  name?: string;
+  description?: string | null;
+  budget?: number | null;
+  currency?: string;
+  environment?: "development" | "staging" | "production" | "other";
+  status?: string;
+  archived?: boolean;
+};
+
+export async function updateProject(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  slug: string,
+  patch: UpdateProjectInput,
+) {
+  const existing = await findProjectBySlug(client, workspaceId, slug);
+  if (!existing) return null;
+
+  const update: Database["public"]["Tables"]["projects"]["Update"] = {
+    updated_at: new Date().toISOString(),
+  };
+  if (patch.name !== undefined) update.name = patch.name;
+  if (patch.description !== undefined) update.description = patch.description;
+  if (patch.budget !== undefined) update.budget = patch.budget;
+  if (patch.currency !== undefined) update.currency = patch.currency;
+  if (patch.environment !== undefined) update.environment = patch.environment;
+  if (patch.status !== undefined) update.status = patch.status;
+  if (patch.archived !== undefined) update.archived = patch.archived;
+
+  const { data, error } = await client
+    .from("projects")
+    .update(update)
+    .eq("workspace_id", workspaceId)
+    .eq("slug", slug)
+    .select(
+      "id, slug, name, description, budget, currency, environment, status, archived, collection_id, created_at, updated_at",
+    )
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export type DbPricingRule = {
+  id: string;
+  workspace_id: string | null;
+  provider: string;
+  model: string | null;
+  unit_type: string;
+  rate_usd: number;
+  notes: string | null;
+};
+
+export async function getPricingRules(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+): Promise<DbPricingRule[]> {
+  const { data, error } = await client
+    .from("pricing_rules")
+    .select("id, workspace_id, provider, model, unit_type, rate_usd, notes")
+    .eq("active", true)
+    .or(`workspace_id.is.null,workspace_id.eq.${workspaceId}`);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    workspace_id: row.workspace_id as string | null,
+    provider: row.provider as string,
+    model: (row.model as string | null) ?? null,
+    unit_type: row.unit_type as string,
+    rate_usd: Number(row.rate_usd),
+    notes: (row.notes as string | null) ?? null,
+  }));
+}
+
 function slugifyName(input: string): string {
   const slug = input
     .toLowerCase()

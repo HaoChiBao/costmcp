@@ -7,6 +7,7 @@ export const OAUTH_SCOPES = [
   "add_expenses",
   "read_summaries",
   "estimate_costs",
+  "manage_projects",
 ] as const;
 
 export const DEFAULT_SCOPE = OAUTH_SCOPES.join(" ");

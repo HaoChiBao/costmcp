@@ -69,7 +69,7 @@ export async function authenticateRequest(
   if (devKey && envApiKeyAllowed() && safeEqual(token, devKey)) {
     return {
       workspaceId: DEMO_WORKSPACE_ID,
-      permissions: ["log_usage", "add_expenses", "read_summaries", "estimate_costs"],
+      permissions: ["log_usage", "add_expenses", "read_summaries", "estimate_costs", "manage_projects"],
       projectId: null,
       policy: null,
     };
@@ -170,6 +170,27 @@ export function assertProjectAccess(
   return null;
 }
 
+export function assertCanCreateProject(ctx: ApiKeyContext, slug: string): Response | null {
+  if (ctx.projectId) {
+    return policyError(
+      403,
+      "project_not_allowed",
+      "Project-scoped keys cannot create new projects",
+    );
+  }
+  const policy = ctx.policy;
+  if (!policy) return null;
+  const allow = policy.conditions.project_slugs;
+  if (allow?.length && !allow.includes(slug)) {
+    return policyError(403, "project_not_allowed", `Key cannot create project "${slug}"`);
+  }
+  const deny = policy.conditions.deny_project_slugs;
+  if (deny?.length && deny.includes(slug)) {
+    return policyError(403, "project_not_allowed", `Key cannot create project "${slug}"`);
+  }
+  return null;
+}
+
 export async function assertMonthlyLimit(
   ctx: ApiKeyContext,
   additionalUsd = 0,
@@ -204,6 +225,13 @@ export function filterSummaryByPolicy<T extends { projects?: { slug: string } | 
     return rows.filter((r) => !r.projects?.slug || !deny.includes(r.projects.slug));
   }
   return rows;
+}
+
+export function filterProjectsByPolicy<T extends { id: string; slug: string }>(
+  ctx: ApiKeyContext,
+  projects: T[],
+): T[] {
+  return projects.filter((p) => projectAllowed(ctx.policy, p));
 }
 
 async function writeCostMessage(

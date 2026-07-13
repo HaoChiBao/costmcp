@@ -146,6 +146,101 @@ server.tool(
 );
 
 server.tool(
+  "create_project",
+  "Create a new project in the workspace before logging costs",
+  {
+    slug: z.string().describe("URL-safe project slug, e.g. slideshow-studio"),
+    name: z.string().describe("Display name"),
+    description: z.string().optional(),
+    budget: z.number().nonnegative().optional().describe("Monthly budget"),
+    currency: z.string().default("USD"),
+    environment: z
+      .enum(["development", "staging", "production", "other"])
+      .default("production"),
+  },
+  async (args) => {
+    const result = await apiFetch("/api/v1/projects", {
+      method: "POST",
+      body: JSON.stringify({
+        slug: args.slug,
+        name: args.name,
+        description: args.description,
+        budget: args.budget,
+        currency: args.currency,
+        environment: args.environment,
+      }),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "list_projects",
+  "List all projects in the workspace",
+  {
+    include_archived: z.boolean().optional().describe("Include archived projects"),
+  },
+  async (args) => {
+    const params = new URLSearchParams();
+    if (args.include_archived) params.set("include_archived", "true");
+    const qs = params.toString();
+    const result = await apiFetch(`/api/v1/projects${qs ? `?${qs}` : ""}`);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "update_project",
+  "Update an existing project's name, budget, description, or archive status",
+  {
+    slug: z.string().describe("Project slug to update"),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    budget: z.number().nonnegative().nullable().optional(),
+    currency: z.string().optional(),
+    environment: z.enum(["development", "staging", "production", "other"]).optional(),
+    status: z.string().optional(),
+    archived: z.boolean().optional(),
+  },
+  async (args) => {
+    const { slug, ...patch } = args;
+    const result = await apiFetch(`/api/v1/projects/${encodeURIComponent(slug)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "estimate_cost",
+  "Estimate USD cost for AI usage before logging",
+  {
+    provider: z.string().describe("Provider name, e.g. openai"),
+    model: z.string().optional().describe("Model name, e.g. gpt-4o-mini"),
+    unit_type: z
+      .string()
+      .describe("Unit type: input_tokens, output_tokens, image, video_second, etc."),
+    quantity: z.number().positive(),
+  },
+  async (args) => {
+    const result = await apiFetch("/api/v1/estimate", {
+      method: "POST",
+      body: JSON.stringify(args),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
   "get_project_spend",
   "Get spend breakdown for a project",
   {
