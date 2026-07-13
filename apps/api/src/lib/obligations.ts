@@ -114,10 +114,11 @@ export async function updateObligationRecord(
         { status: 400 },
       );
     }
-    if (existing.status === "paid" && input.status !== "paid") {
-      throw Object.assign(new Error("Paid obligations cannot change status here; void the expense instead"), {
-        status: 400,
-      });
+    if (existing.status === "paid") {
+      throw Object.assign(
+        new Error("Paid obligations cannot change status here; void the expense instead"),
+        { status: 400 },
+      );
     }
     patch.status = input.status;
     if (input.status === "cancelled") {
