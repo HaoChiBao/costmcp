@@ -1,7 +1,6 @@
 import { authenticateUser } from "@/lib/user-auth";
 import {
   AUTH_CODE_TTL_SECONDS,
-  DEFAULT_SCOPE,
   OAUTH_SCOPES,
 } from "@/lib/oauth/config";
 import {
@@ -61,8 +60,14 @@ export async function POST(request: Request) {
   }
 
   const requested = (body.scope ?? "").split(/\s+/).filter(Boolean);
-  const granted = requested.filter((s) => (OAUTH_SCOPES as readonly string[]).includes(s));
-  const scope = granted.length > 0 ? granted.join(" ") : DEFAULT_SCOPE;
+  const granted = new Set(requested.filter((s) => (OAUTH_SCOPES as readonly string[]).includes(s)));
+  if (granted.size === 0) {
+    for (const s of OAUTH_SCOPES) granted.add(s);
+  } else if (body.resource) {
+    // MCP OAuth grants project lifecycle tools alongside ingest/read scopes.
+    granted.add("manage_projects");
+  }
+  const scope = [...granted].join(" ");
 
   try {
     const connectionId = await findOrCreateConnection({

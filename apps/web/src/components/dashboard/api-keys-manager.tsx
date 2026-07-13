@@ -49,6 +49,7 @@ const ALL_PERMISSIONS: Array<{ id: string; label: string }> = [
   { id: "add_expenses", label: "Add expenses" },
   { id: "read_summaries", label: "Read summaries" },
   { id: "estimate_costs", label: "Estimate costs" },
+  { id: "manage_projects", label: "Manage projects" },
 ];
 
 const DEFAULT_PERMS = ALL_PERMISSIONS.map((p) => p.id);
