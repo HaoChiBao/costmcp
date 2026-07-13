@@ -1,8 +1,9 @@
-import { createServiceClient, findProjectBySlug, getMonthlySpend, createProject, ProjectConflictError } from "@costmcp/db";
-import { parseCostMessage, validateProjectSlug } from "@costmcp/core";
+import { createServiceClient, findProjectBySlug, getMonthlySpend, createProject, ProjectConflictError, listProjects, updateProject, getPricingRules } from "@costmcp/db";
+import { parseCostMessage, validateProjectSlug, computeUsageEstimate } from "@costmcp/core";
 import {
   assertCanCreateProject,
   assertProjectAccess,
+  filterProjectsByPolicy,
   filterSummaryByPolicy,
   persistCostMessage,
   requirePermission,
@@ -19,6 +20,7 @@ export interface McpTool {
 
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
+const bool = (v: unknown): boolean | undefined => (typeof v === "boolean" ? v : undefined);
 
 function throwIfDenied(res: Response | null): void {
   if (!res) return;
@@ -369,6 +371,133 @@ export const MCP_TOOLS: McpTool[] = [
         const message = err instanceof Error ? err.message : "Failed to create project";
         throw new McpToolError(message);
       }
+    },
+  },
+  {
+    name: "list_projects",
+    description: "List all projects in the workspace with metadata (slug, name, budget, environment).",
+    permission: "read_summaries",
+    inputSchema: {
+      type: "object",
+      properties: {
+        include_archived: {
+          type: "boolean",
+          description: "Include archived projects (default false)",
+        },
+      },
+    },
+    handler: async (ctx, args) => {
+      const client = createServiceClient();
+      const includeArchived = bool(args.include_archived) ?? false;
+      const allProjects = await listProjects(client, ctx.workspaceId, { includeArchived });
+      const projects = filterProjectsByPolicy(ctx, allProjects);
+      return { projects, count: projects.length };
+    },
+  },
+  {
+    name: "update_project",
+    description: "Update an existing project's name, budget, description, environment, or archive status.",
+    permission: "manage_projects",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "Project slug to update" },
+        name: { type: "string" },
+        description: { type: "string" },
+        budget: { type: "number", description: "Monthly budget, or null to clear" },
+        currency: { type: "string" },
+        environment: {
+          type: "string",
+          enum: ["development", "staging", "production", "other"],
+        },
+        status: { type: "string" },
+        archived: { type: "boolean" },
+      },
+      required: ["slug"],
+    },
+    handler: async (ctx, args) => {
+      const slug = str(args.slug)?.trim() ?? "";
+      if (!slug) throw new McpToolError("slug is required");
+
+      const patch = {
+        name: str(args.name)?.trim(),
+        description: args.description === null ? null : str(args.description),
+        budget: args.budget === null ? null : num(args.budget),
+        currency: str(args.currency),
+        environment: str(args.environment) as
+          | "development"
+          | "staging"
+          | "production"
+          | "other"
+          | undefined,
+        status: str(args.status),
+        archived: bool(args.archived),
+      };
+
+      const hasUpdate = Object.values(patch).some((v) => v !== undefined);
+      if (!hasUpdate) throw new McpToolError("At least one field to update is required");
+
+      if (patch.name !== undefined && !patch.name) {
+        throw new McpToolError("name cannot be empty");
+      }
+
+      if (patch.budget !== undefined && patch.budget !== null && patch.budget < 0) {
+        throw new McpToolError("budget must be a non-negative number or null");
+      }
+
+      const client = createServiceClient();
+      const existing = await findProjectBySlug(client, ctx.workspaceId, slug);
+      if (!existing) throw new McpToolError("Project not found");
+
+      throwIfDenied(assertProjectAccess(ctx, existing));
+
+      try {
+        const project = await updateProject(client, ctx.workspaceId, slug, patch);
+        if (!project) throw new McpToolError("Project not found");
+        return { project, updated: true };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to update project";
+        throw new McpToolError(message);
+      }
+    },
+  },
+  {
+    name: "estimate_cost",
+    description:
+      "Estimate USD cost for AI usage before logging. Looks up pricing rules by provider, model, and unit type.",
+    permission: "estimate_costs",
+    inputSchema: {
+      type: "object",
+      properties: {
+        provider: { type: "string", description: "Provider name, e.g. openai" },
+        model: { type: "string", description: "Model name, e.g. gpt-4o-mini" },
+        unit_type: {
+          type: "string",
+          description: "input_tokens, output_tokens, image, video_second, voice_character, etc.",
+        },
+        quantity: { type: "number", description: "Number of units to estimate" },
+      },
+      required: ["provider", "unit_type", "quantity"],
+    },
+    handler: async (ctx, args) => {
+      const provider = str(args.provider)?.trim() ?? "";
+      const unit_type = str(args.unit_type)?.trim() ?? "";
+      const quantity = num(args.quantity);
+      const model = str(args.model);
+
+      if (!provider) throw new McpToolError("provider is required");
+      if (!unit_type) throw new McpToolError("unit_type is required");
+      if (quantity === undefined || quantity <= 0) {
+        throw new McpToolError("quantity must be a positive number");
+      }
+
+      const client = createServiceClient();
+      const rules = await getPricingRules(client, ctx.workspaceId);
+      const estimate = computeUsageEstimate({ provider, model, unit_type, quantity }, rules);
+      return {
+        ...estimate,
+        pricing_rule_found: estimate.matched_rule !== null,
+      };
     },
   },
 ];

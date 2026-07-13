@@ -73,6 +73,55 @@ Creates a project explicitly with name, budget, and metadata. Returns `409` if t
 **Local:** `POST /api/v1/projects`.  
 **Remote:** DB insert via service role.
 
+## `list_projects`
+
+Permission: `read_summaries`
+
+| Param | Type | Required | Default |
+|-------|------|----------|---------|
+| `include_archived` | boolean | | `false` |
+
+Returns all projects visible to the API key (respects project scope conditions).
+
+**Local:** `GET /api/v1/projects`.  
+**Remote:** DB query via service role.
+
+## `update_project`
+
+Permission: `manage_projects`
+
+| Param | Type | Required |
+|-------|------|----------|
+| `slug` | string | ✓ |
+| `name` | string | |
+| `description` | string | |
+| `budget` | number (≥0) or null | |
+| `currency` | string | |
+| `environment` | `development` \| `staging` \| `production` \| `other` | |
+| `status` | string | |
+| `archived` | boolean | |
+
+At least one field besides `slug` is required.
+
+**Local:** `PATCH /api/v1/projects/{slug}`.  
+**Remote:** DB update via service role.
+
+## `estimate_cost`
+
+Permission: `estimate_costs`
+
+| Param | Type | Required |
+|-------|------|----------|
+| `provider` | string | ✓ |
+| `unit_type` | string | ✓ |
+| `quantity` | number (>0) | ✓ |
+| `model` | string | |
+
+Looks up `pricing_rules` (workspace overrides global). Returns `pricing_rule_found: false` when no rule matches.
+
+**Local:** `POST /api/v1/estimate`.  
+**Remote:** DB lookup + calculation.
+
 ## `get_project_spend`
 
 Permission: `read_summaries`
@@ -112,6 +161,9 @@ No parameters. Same shape as `GET /api/v1/summary/month`.
 ## Example prompts
 
 - "Create a project called Slideshow Studio with slug slideshow-studio and a $200 monthly budget"
+- "List all my projects"
+- "Set slideshow-studio budget to $300"
+- "How much would 100 images from openai gpt-image-2 cost?"
 - "Log 1.2M tokens under ProgressGoat"
 - "Log $18.40 Kling batch under YouTube Pipeline"
 - "How much did Slideshow Studio cost this week?"

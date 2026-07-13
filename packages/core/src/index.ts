@@ -297,3 +297,99 @@ export function buildMessageMetadata(
       };
   }
 }
+
+export type PricingRule = {
+  id: string;
+  workspace_id: string | null;
+  provider: string;
+  model: string | null;
+  unit_type: string;
+  rate_usd: number;
+  notes: string | null;
+};
+
+export type EstimateUsageInput = {
+  provider: string;
+  model?: string;
+  unit_type: string;
+  quantity: number;
+};
+
+export type EstimateUsageResult = {
+  estimated_usd: number;
+  rate_usd: number;
+  quantity: number;
+  provider: string;
+  model: string | null;
+  unit_type: string;
+  matched_rule: Pick<PricingRule, "id" | "provider" | "model" | "unit_type" | "rate_usd" | "notes"> | null;
+};
+
+function pickPricingRule(rules: PricingRule[], input: EstimateUsageInput): PricingRule | null {
+  const provider = input.provider.toLowerCase().trim();
+  const unitType = input.unit_type;
+  const model = input.model?.trim() || null;
+
+  let best: PricingRule | null = null;
+  let bestScore = -1;
+
+  for (const rule of rules) {
+    if (rule.provider.toLowerCase() !== provider) continue;
+    if (rule.unit_type !== unitType) continue;
+    if (model !== null && rule.model !== null && rule.model !== model) continue;
+
+    let score = rule.workspace_id ? 10 : 0;
+    if (model !== null) {
+      score += rule.model === model ? 5 : 1;
+    } else if (rule.model === null) {
+      score += 3;
+    } else {
+      score += 2;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = rule;
+    }
+  }
+
+  return best;
+}
+
+export function computeUsageEstimate(
+  input: EstimateUsageInput,
+  rules: PricingRule[],
+): EstimateUsageResult {
+  const model = input.model?.trim() || null;
+  const matched = pickPricingRule(rules, input);
+
+  if (!matched) {
+    return {
+      estimated_usd: 0,
+      rate_usd: 0,
+      quantity: input.quantity,
+      provider: input.provider,
+      model,
+      unit_type: input.unit_type,
+      matched_rule: null,
+    };
+  }
+
+  const rate = Number(matched.rate_usd);
+  return {
+    estimated_usd: rate * input.quantity,
+    rate_usd: rate,
+    quantity: input.quantity,
+    provider: input.provider,
+    model,
+    unit_type: input.unit_type,
+    matched_rule: {
+      id: matched.id,
+      provider: matched.provider,
+      model: matched.model,
+      unit_type: matched.unit_type,
+      rate_usd: rate,
+      notes: matched.notes,
+    },
+  };
+}

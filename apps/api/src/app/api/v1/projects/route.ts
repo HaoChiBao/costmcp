@@ -1,9 +1,10 @@
-import { createProject, ProjectConflictError, createServiceClient } from "@costmcp/db";
+import { createProject, ProjectConflictError, createServiceClient, listProjects } from "@costmcp/db";
 import { validateProjectSlug } from "@costmcp/core";
 import type { NextRequest } from "next/server";
 import {
   assertCanCreateProject,
   authenticateRequest,
+  filterProjectsByPolicy,
   requirePermission,
 } from "@/lib/auth";
 
@@ -15,6 +16,27 @@ type CreateProjectBody = {
   currency?: string;
   environment?: "development" | "staging" | "production" | "other";
 };
+
+export async function GET(request: NextRequest) {
+  const auth = await authenticateRequest(request);
+  if (auth instanceof Response) return auth;
+
+  const denied = requirePermission(auth, "read_summaries");
+  if (denied) return denied;
+
+  const { searchParams } = new URL(request.url);
+  const includeArchived = searchParams.get("include_archived") === "true";
+
+  try {
+    const client = createServiceClient();
+    const allProjects = await listProjects(client, auth.workspaceId, { includeArchived });
+    const projects = filterProjectsByPolicy(auth, allProjects);
+    return Response.json({ projects, count: projects.length });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to list projects";
+    return Response.json({ error: message }, { status: 500 });
+  }
+}
 
 export async function POST(request: NextRequest) {
   const auth = await authenticateRequest(request);

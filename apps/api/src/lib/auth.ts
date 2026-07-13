@@ -227,6 +227,13 @@ export function filterSummaryByPolicy<T extends { projects?: { slug: string } | 
   return rows;
 }
 
+export function filterProjectsByPolicy<T extends { id: string; slug: string }>(
+  ctx: ApiKeyContext,
+  projects: T[],
+): T[] {
+  return projects.filter((p) => projectAllowed(ctx.policy, p));
+}
+
 async function writeCostMessage(
   workspaceId: string,
   envelope: import("@costmcp/core").CostMessageEnvelope,
