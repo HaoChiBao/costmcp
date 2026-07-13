@@ -136,7 +136,21 @@ export type ApiPermission =
   | "read_summaries"
   | "estimate_costs"
   | "manage_subscriptions"
+  | "manage_projects"
   | "delete_records";
+
+const PROJECT_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+
+export function validateProjectSlug(slug: string): string | null {
+  const trimmed = slug.trim();
+  if (!trimmed || trimmed.length > FIELD_LIMITS.project) {
+    return "slug must be 1–64 characters";
+  }
+  if (!PROJECT_SLUG_RE.test(trimmed)) {
+    return "slug must be lowercase alphanumeric with hyphens (no leading/trailing hyphen)";
+  }
+  return null;
+}
 
 export const DEFAULT_INGEST_PERMISSIONS: ApiPermission[] = [
   "log_usage",

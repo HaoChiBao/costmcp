@@ -1,6 +1,7 @@
-import { createServiceClient, findProjectBySlug, getMonthlySpend } from "@costmcp/db";
-import { parseCostMessage } from "@costmcp/core";
+import { createServiceClient, findProjectBySlug, getMonthlySpend, createProject, ProjectConflictError } from "@costmcp/db";
+import { parseCostMessage, validateProjectSlug } from "@costmcp/core";
 import {
+  assertCanCreateProject,
   assertProjectAccess,
   filterSummaryByPolicy,
   persistCostMessage,
@@ -305,6 +306,69 @@ export const MCP_TOOLS: McpTool[] = [
         top_project: top ? { slug: top[0], amount_usd: top[1] } : null,
         message_count: rows.length,
       };
+    },
+  },
+  {
+    name: "create_project",
+    description:
+      "Create a new project in the workspace before logging costs. Sets name, budget, and metadata upfront.",
+    permission: "manage_projects",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: {
+          type: "string",
+          description: "URL-safe project slug, e.g. slideshow-studio",
+        },
+        name: { type: "string", description: "Display name" },
+        description: { type: "string" },
+        budget: { type: "number", description: "Monthly budget in the project's currency" },
+        currency: { type: "string", default: "USD" },
+        environment: {
+          type: "string",
+          enum: ["development", "staging", "production", "other"],
+          default: "production",
+        },
+      },
+      required: ["slug", "name"],
+    },
+    handler: async (ctx, args) => {
+      const slug = str(args.slug)?.trim() ?? "";
+      const name = str(args.name)?.trim() ?? "";
+      const description = str(args.description);
+      const budget = num(args.budget);
+      const currency = str(args.currency) ?? "USD";
+      const environment = str(args.environment) as
+        | "development"
+        | "staging"
+        | "production"
+        | "other"
+        | undefined;
+
+      const slugError = validateProjectSlug(slug);
+      if (slugError) throw new McpToolError(slugError);
+      if (!name) throw new McpToolError("name is required");
+
+      throwIfDenied(assertCanCreateProject(ctx, slug));
+
+      try {
+        const client = createServiceClient();
+        const project = await createProject(client, ctx.workspaceId, {
+          slug,
+          name,
+          description,
+          budget,
+          currency,
+          environment,
+        });
+        return { project, created: true };
+      } catch (err) {
+        if (err instanceof ProjectConflictError) {
+          throw new McpToolError(err.message);
+        }
+        const message = err instanceof Error ? err.message : "Failed to create project";
+        throw new McpToolError(message);
+      }
     },
   },
 ];

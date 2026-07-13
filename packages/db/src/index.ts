@@ -297,6 +297,48 @@ export async function upsertProjectBySlug(
   return data;
 }
 
+export type CreateProjectInput = {
+  slug: string;
+  name: string;
+  description?: string;
+  budget?: number;
+  currency?: string;
+  environment?: "development" | "staging" | "production" | "other";
+};
+
+export class ProjectConflictError extends Error {
+  constructor(slug: string) {
+    super(`Project "${slug}" already exists`);
+    this.name = "ProjectConflictError";
+  }
+}
+
+export async function createProject(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  input: CreateProjectInput,
+) {
+  const existing = await findProjectBySlug(client, workspaceId, input.slug);
+  if (existing) throw new ProjectConflictError(input.slug);
+
+  const { data, error } = await client
+    .from("projects")
+    .insert({
+      workspace_id: workspaceId,
+      slug: input.slug,
+      name: input.name,
+      description: input.description ?? null,
+      budget: input.budget ?? null,
+      currency: input.currency ?? "USD",
+      environment: input.environment ?? "production",
+    })
+    .select("id, slug, name, description, budget, currency, environment, created_at")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 function slugifyName(input: string): string {
   const slug = input
     .toLowerCase()

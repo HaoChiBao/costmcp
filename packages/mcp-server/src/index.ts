@@ -146,6 +146,37 @@ server.tool(
 );
 
 server.tool(
+  "create_project",
+  "Create a new project in the workspace before logging costs",
+  {
+    slug: z.string().describe("URL-safe project slug, e.g. slideshow-studio"),
+    name: z.string().describe("Display name"),
+    description: z.string().optional(),
+    budget: z.number().nonnegative().optional().describe("Monthly budget"),
+    currency: z.string().default("USD"),
+    environment: z
+      .enum(["development", "staging", "production", "other"])
+      .default("production"),
+  },
+  async (args) => {
+    const result = await apiFetch("/api/v1/projects", {
+      method: "POST",
+      body: JSON.stringify({
+        slug: args.slug,
+        name: args.name,
+        description: args.description,
+        budget: args.budget,
+        currency: args.currency,
+        environment: args.environment,
+      }),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
   "get_project_spend",
   "Get spend breakdown for a project",
   {
