@@ -1,5 +1,5 @@
-import { createServiceClient, findProjectBySlug, getMonthlySpend, createProject, ProjectConflictError, listProjects, updateProject, getPricingRules } from "@costmcp/db";
-import { parseCostMessage, validateProjectSlug, computeUsageEstimate } from "@costmcp/core";
+import { createServiceClient, findProjectBySlug, getMonthlySpend, createProject, ProjectConflictError, listProjects, updateProject, getPricingRules, listSubscriptions } from "@costmcp/db";
+import { parseCostMessage, validateProjectSlug, computeUsageEstimate, parseOptionalIsoDateTime } from "@costmcp/core";
 import {
   assertCanCreateProject,
   assertProjectAccess,
@@ -8,6 +8,7 @@ import {
   persistCostMessage,
   requirePermission,
 } from "@/lib/auth";
+import { subscriptionFromRow, updateSubscriptionMessage } from "@/lib/subscription-ledger";
 import type { McpAuthContext } from "@/lib/mcp/auth";
 
 export interface McpTool {
@@ -135,18 +136,37 @@ export const MCP_TOOLS: McpTool[] = [
         category: { type: "string" },
         notes: { type: "string" },
         status: { type: "string" },
+        renewal_date: {
+          type: "string",
+          description: "Next renewal date (ISO 8601 or YYYY-MM-DD), e.g. 2026-08-01",
+        },
+        started_at: {
+          type: "string",
+          description: "First billing / start date (ISO 8601 or YYYY-MM-DD). Sets occurred_at.",
+        },
         timestamp: {
           type: "string",
-          description: "When the subscription charge occurred (ISO 8601).",
+          description: "Alias for started_at — when the subscription charge occurred (ISO 8601).",
         },
       },
       required: ["project", "vendor", "amount", "interval"],
     },
     handler: async (ctx, args) => {
+      const startedRaw = str(args.started_at) ?? str(args.timestamp);
+      let timestamp: string | undefined;
+      let renewalDate: string | undefined;
+      try {
+        timestamp = startedRaw ? parseOptionalIsoDateTime(startedRaw) : undefined;
+        const renewalRaw = str(args.renewal_date);
+        renewalDate = renewalRaw ? parseOptionalIsoDateTime(renewalRaw) : undefined;
+      } catch {
+        throw new McpToolError("started_at or renewal_date must be a valid date (YYYY-MM-DD or ISO 8601)");
+      }
+
       const envelope = parseCostMessage({
         project: str(args.project),
         source: "mcp",
-        timestamp: str(args.timestamp),
+        timestamp,
         message: {
           type: "subscription",
           vendor: str(args.vendor),
@@ -156,6 +176,7 @@ export const MCP_TOOLS: McpTool[] = [
           category: str(args.category),
           notes: str(args.notes),
           status: str(args.status),
+          renewal_date: renewalDate,
         },
       });
       try {
@@ -163,6 +184,116 @@ export const MCP_TOOLS: McpTool[] = [
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to add subscription";
+        throw new McpToolError(message);
+      }
+    },
+  },
+  {
+    name: "list_subscriptions",
+    description:
+      "List subscription records for a project (or entire workspace) with renewal dates and billing start dates.",
+    permission: "read_summaries",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Optional project slug filter" },
+      },
+    },
+    handler: async (ctx, args) => {
+      const client = createServiceClient();
+      const projectSlug = str(args.project)?.trim() ?? "";
+      let projectId: string | undefined;
+
+      if (projectSlug) {
+        const project = await findProjectBySlug(client, ctx.workspaceId, projectSlug);
+        if (!project) throw new McpToolError("Project not found");
+        throwIfDenied(assertProjectAccess(ctx, project));
+        projectId = project.id;
+      }
+
+      const rows = await listSubscriptions(client, ctx.workspaceId, { projectId });
+      const subscriptions = rows
+        .filter((row) => {
+          if (!row.projects) return true;
+          return !assertProjectAccess(ctx, {
+            id: row.project_id as string,
+            slug: row.projects.slug,
+          });
+        })
+        .map((row) => subscriptionFromRow({ ...row, metadata: row.metadata ?? {} }));
+
+      return { subscriptions, count: subscriptions.length };
+    },
+  },
+  {
+    name: "update_subscription",
+    description:
+      "Update an existing subscription's amount, renewal date, billing start date, interval, or status. Identify by id or project+vendor.",
+    permission: "manage_subscriptions",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Subscription ledger message UUID" },
+        project: { type: "string", description: "Project slug (with vendor if id omitted)" },
+        vendor: { type: "string", description: "Vendor name (with project if id omitted)" },
+        amount: { type: "number" },
+        currency: { type: "string" },
+        interval: {
+          type: "string",
+          enum: ["monthly", "yearly", "weekly", "quarterly"],
+        },
+        category: { type: "string" },
+        notes: { type: "string" },
+        status: { type: "string", enum: ["active", "trial", "paused", "cancelled"] },
+        renewal_date: {
+          type: "string",
+          description: "Next renewal date (ISO 8601 or YYYY-MM-DD)",
+        },
+        started_at: {
+          type: "string",
+          description: "Billing start / occurred date (ISO 8601 or YYYY-MM-DD)",
+        },
+      },
+    },
+    handler: async (ctx, args) => {
+      const patch = {
+        id: str(args.id),
+        project: str(args.project),
+        vendor: str(args.vendor),
+        amount: num(args.amount),
+        currency: str(args.currency),
+        interval: str(args.interval) as "monthly" | "yearly" | "weekly" | "quarterly" | undefined,
+        category: str(args.category),
+        notes: str(args.notes),
+        status: str(args.status) as "active" | "trial" | "paused" | "cancelled" | undefined,
+        renewal_date: str(args.renewal_date),
+        started_at: str(args.started_at),
+      };
+
+      const hasUpdate = [
+        patch.amount,
+        patch.currency,
+        patch.interval,
+        patch.category,
+        patch.notes,
+        patch.status,
+        patch.renewal_date,
+        patch.started_at,
+        patch.vendor,
+        patch.project,
+      ].some((v) => v !== undefined);
+
+      if (!patch.id && !(patch.project && patch.vendor)) {
+        throw new McpToolError("id or (project and vendor) is required");
+      }
+      if (!hasUpdate) {
+        throw new McpToolError("At least one field to update is required");
+      }
+
+      try {
+        return await updateSubscriptionMessage(ctx, patch);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to update subscription";
         throw new McpToolError(message);
       }
     },
