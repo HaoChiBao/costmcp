@@ -64,8 +64,8 @@ export async function POST(request: Request) {
   if (granted.size === 0) {
     for (const s of OAUTH_SCOPES) granted.add(s);
   } else if (body.resource) {
-    // MCP OAuth grants project lifecycle tools alongside ingest/read scopes.
-    granted.add("manage_projects");
+    // MCP OAuth: grant all supported scopes so connector tools (projects, subscriptions) work.
+    for (const s of OAUTH_SCOPES) granted.add(s);
   }
   const scope = [...granted].join(" ");
 

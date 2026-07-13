@@ -13,8 +13,8 @@ Permissions are stored as a string array on each API key and OAuth connection. T
 | `add_expenses` | Expense messages, MCP `add_expense` |
 | `read_summaries` | Summary / spend / budget endpoints + read MCP tools |
 | `estimate_costs` | `POST /api/v1/estimate`, MCP `estimate_cost` |
-| `manage_subscriptions` | Subscription messages (`POST /api/v1/messages`) |
-| `manage_projects` | `POST /api/v1/projects`, MCP `create_project` |
+| `manage_subscriptions` | Subscription messages, MCP `add_subscription` |
+| `manage_projects` | `POST /api/v1/projects`, MCP `create_project`, `update_project` |
 | `delete_records` | Reserved |
 
 Missing permission → `403` with `error: "missing_permission"`.
@@ -27,7 +27,7 @@ New ingest keys default to:
 ["log_usage", "add_expenses", "read_summaries", "estimate_costs"]
 ```
 
-OAuth scopes use the same strings (space-separated in the OAuth protocol). Dashboard create UI exposes the first four as checkboxes.
+OAuth scopes use the same strings (space-separated in the OAuth protocol). MCP connector consent grants all supported scopes. Dashboard create UI exposes ingest, estimate, project, and subscription permissions as checkboxes.
 
 ## Conditions vs permissions
 

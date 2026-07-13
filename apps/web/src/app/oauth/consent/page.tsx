@@ -113,7 +113,7 @@ function ConsentInner() {
         <h1 className="auth-page__title">{clientName}</h1>
         <p className="text-muted">
           wants to connect to CostMCP and access your cost tools: log usage, add
-          expenses, read spend summaries, and manage projects.
+          expenses and subscriptions, read spend summaries, and manage projects.
         </p>
 
         {status === "loading" ? (
