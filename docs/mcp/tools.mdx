@@ -55,6 +55,80 @@ Permission: `manage_subscriptions`
 | `status` | string | | `active` |
 | `timestamp` | ISO datetime | | now |
 
+## `add_obligation`
+
+Permission: `manage_obligations`
+
+Track money you owe (a payable). Does **not** count as spend until settled.
+
+| Param | Type | Required | Default |
+|-------|------|----------|---------|
+| `payee` | string | ✓ | |
+| `amount` | number (>0) | ✓ | |
+| `due_date` | date / ISO | ✓ | |
+| `currency` | string | | `USD` |
+| `remind_at` | date / ISO | | due − 3 days |
+| `project` | string | | |
+| `vendor` | string | | payee |
+| `notes` | string | | |
+
+**Local:** `POST /api/v1/obligations`.  
+**Remote:** service role insert.
+
+## `list_obligations`
+
+Permission: `read_summaries`
+
+| Param | Type | Required |
+|-------|------|----------|
+| `status` | `open` \| `paid` \| `cancelled` | |
+| `due_before` | YYYY-MM-DD | |
+| `due_after` | YYYY-MM-DD | |
+
+## `update_obligation`
+
+Permission: `manage_obligations`
+
+| Param | Type | Required |
+|-------|------|----------|
+| `id` | UUID | ✓ |
+| `payee` | string | |
+| `amount` | number (>0) | |
+| `currency` | string | |
+| `due_date` | date | |
+| `remind_at` | date | |
+| `project` | string | |
+| `vendor` | string | |
+| `notes` | string | |
+| `status` | `open` \| `paid` \| `cancelled` | |
+
+## `settle_obligation`
+
+Permission: `manage_obligations`
+
+Marks the obligation paid and posts a matching `expense` ledger row.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `id` | UUID | ✓ |
+| `project` | string | if obligation has none |
+| `category` | string | |
+| `notes` | string | |
+| `occurred_at` | ISO datetime | |
+
+## `list_upcoming_payments`
+
+Permission: `read_summaries`
+
+Unions open obligations (by `due_date`) with active subscriptions that have `renewal_date`.
+
+| Param | Type | Required | Default |
+|-------|------|----------|---------|
+| `days` | number | | `30` |
+| `include_overdue` | boolean | | `true` |
+
+**Local:** `GET /api/v1/upcoming`.  
+
 ## `create_project`
 
 Permission: `manage_projects`
@@ -168,3 +242,5 @@ No parameters. Same shape as `GET /api/v1/summary/month`.
 - "Log $18.40 Kling batch under YouTube Pipeline"
 - "How much did Slideshow Studio cost this week?"
 - "Can I afford 100 video generations?"
+- "Remind me I owe Alice $40 by Friday"
+- "What payments are coming up in the next two weeks?"

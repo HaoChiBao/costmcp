@@ -278,6 +278,48 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["fx_rates"]["Insert"]>
         Relationships: []
       }
+      obligations: {
+        Row: {
+          id: string
+          workspace_id: string
+          project_id: string | null
+          vendor_id: string | null
+          payee: string
+          amount_original: number
+          currency: string
+          amount_usd: number
+          due_date: string
+          remind_at: string | null
+          status: string
+          notes: string | null
+          paid_at: string | null
+          settled_message_id: string | null
+          source: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          project_id?: string | null
+          vendor_id?: string | null
+          payee: string
+          amount_original: number
+          currency?: string
+          amount_usd: number
+          due_date: string
+          remind_at?: string | null
+          status?: string
+          notes?: string | null
+          paid_at?: string | null
+          settled_message_id?: string | null
+          source?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["obligations"]["Insert"]>
+        Relationships: []
+      }
       pricing_rules: {
         Row: Record<string, unknown>
         Insert: Record<string, unknown>

@@ -136,8 +136,105 @@ export type ApiPermission =
   | "read_summaries"
   | "estimate_costs"
   | "manage_subscriptions"
+  | "manage_obligations"
   | "manage_projects"
   | "delete_records";
+
+export const ObligationStatusSchema = z.enum(["open", "paid", "cancelled"]);
+export type ObligationStatus = z.infer<typeof ObligationStatusSchema>;
+
+const ObligationMoneySchema = z
+  .number()
+  .refine((n) => Number.isFinite(n) && n > 0, "Amount must be a positive number");
+
+function parseDateOnly(value: string, field: string): string {
+  const trimmed = value.trim();
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? trimmed
+    : (() => {
+        const d = new Date(trimmed);
+        if (Number.isNaN(d.getTime())) {
+          throw new Error(`${field} must be a valid date`);
+        }
+        return d.toISOString().slice(0, 10);
+      })();
+  return dateOnly;
+}
+
+export const ObligationCreateSchema = z.object({
+  payee: z.string().min(1).max(FIELD_LIMITS.vendor),
+  amount: ObligationMoneySchema,
+  currency: z.string().default("USD"),
+  due_date: z.string().min(1),
+  remind_at: z.string().optional(),
+  project: z.string().max(FIELD_LIMITS.project).optional(),
+  vendor: z.string().max(FIELD_LIMITS.vendor).optional(),
+  notes: z.string().max(FIELD_LIMITS.notes).optional(),
+  source: MessageSourceSchema.default("manual"),
+});
+
+export type ObligationCreateInput = z.infer<typeof ObligationCreateSchema>;
+
+export const ObligationUpdateSchema = z.object({
+  payee: z.string().min(1).max(FIELD_LIMITS.vendor).optional(),
+  amount: ObligationMoneySchema.optional(),
+  currency: z.string().optional(),
+  due_date: z.string().min(1).optional(),
+  remind_at: z.string().nullable().optional(),
+  project: z.string().max(FIELD_LIMITS.project).nullable().optional(),
+  vendor: z.string().max(FIELD_LIMITS.vendor).nullable().optional(),
+  notes: z.string().max(FIELD_LIMITS.notes).nullable().optional(),
+  status: ObligationStatusSchema.optional(),
+});
+
+export type ObligationUpdateInput = z.infer<typeof ObligationUpdateSchema>;
+
+export const ObligationSettleSchema = z.object({
+  project: z.string().min(1).max(FIELD_LIMITS.project).optional(),
+  category: z.string().max(64).optional(),
+  notes: z.string().max(FIELD_LIMITS.notes).optional(),
+  occurred_at: z.string().datetime().optional(),
+});
+
+export type ObligationSettleInput = z.infer<typeof ObligationSettleSchema>;
+
+export function parseObligationCreate(input: unknown): ObligationCreateInput {
+  const parsed = ObligationCreateSchema.parse(input);
+  return {
+    ...parsed,
+    due_date: parseDateOnly(parsed.due_date, "due_date"),
+    remind_at: parsed.remind_at
+      ? parseDateOnly(parsed.remind_at, "remind_at")
+      : undefined,
+  };
+}
+
+export function parseObligationUpdate(input: unknown): ObligationUpdateInput {
+  const parsed = ObligationUpdateSchema.parse(input);
+  return {
+    ...parsed,
+    due_date: parsed.due_date
+      ? parseDateOnly(parsed.due_date, "due_date")
+      : undefined,
+    remind_at:
+      parsed.remind_at === null
+        ? null
+        : parsed.remind_at
+          ? parseDateOnly(parsed.remind_at, "remind_at")
+          : undefined,
+  };
+}
+
+export function parseObligationSettle(input: unknown): ObligationSettleInput {
+  return ObligationSettleSchema.parse(input ?? {});
+}
+
+/** Default remind_at = due_date minus 3 days (clamped to due_date if earlier than epoch). */
+export function defaultRemindAt(dueDate: string): string {
+  const d = new Date(`${dueDate}T12:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() - 3);
+  return d.toISOString().slice(0, 10);
+}
 
 const PROJECT_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 

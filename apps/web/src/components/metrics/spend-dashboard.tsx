@@ -24,11 +24,16 @@ import {
 } from "@/lib/metrics-cache";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { AddExpenseForm } from "@/components/metrics/add-expense-form";
+import { AddObligationForm } from "@/components/metrics/add-obligation-form";
 import { AddSubscriptionForm } from "@/components/metrics/add-subscription-form";
 import { ActivityFeed } from "@/components/metrics/activity-feed";
 import { SpendFiltersBar } from "@/components/metrics/spend-filters-bar";
 import { SpendChart } from "@/components/metrics/spend-chart";
 import { TransactionDetail } from "@/components/metrics/transaction-detail";
+import {
+  UpcomingPayments,
+  type UpcomingItem,
+} from "@/components/metrics/upcoming-payments";
 import { LedgerModal } from "@/components/ui/ledger-modal";
 import { formatActivityDisplay, formatActivityRowDate } from "@/lib/activity-display";
 import type { OrgTree } from "@/lib/api";
@@ -41,7 +46,17 @@ type Props = {
   org: OrgTree;
 };
 
-type Composer = "expense" | "subscription" | null;
+type Composer = "expense" | "subscription" | "obligation" | null;
+type ObligationDraft = {
+  id: string;
+  payee: string;
+  amount: number;
+  currency: string;
+  due_date: string;
+  remind_at: string | null;
+  notes: string | null;
+  project_slug: string | null;
+};
 
 function resolveCategorySlug(org: OrgTree, value: string | null | undefined) {
   if (!value) return "";
@@ -157,8 +172,12 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
   const [error, setError] = useState<string | null>(null);
   const [composer, setComposer] = useState<Composer>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingObligation, setEditingObligation] = useState<ObligationDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [upcoming, setUpcoming] = useState<UpcomingItem[]>([]);
+  const [upcomingLoading, setUpcomingLoading] = useState(true);
+  const [settlingId, setSettlingId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [, startTransition] = useTransition();
 
@@ -208,6 +227,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
     clearMetricsCache(workspaceSlug);
     setComposer(null);
     setEditingId(null);
+    setEditingObligation(null);
     setReloadToken((token) => token + 1);
     void refreshOrg();
   }, [workspaceSlug, refreshOrg]);
@@ -312,6 +332,40 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
       cancelled = true;
     };
   }, [workspaceSlug, period, filters, reloadToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUpcoming() {
+      setUpcomingLoading(true);
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        if (!cancelled) setUpcomingLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `${API_URL}/api/v1/workspaces/${workspaceSlug}/upcoming?days=30`,
+          { headers: { Authorization: `Bearer ${session.access_token}` } },
+        );
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as { upcoming?: UpcomingItem[] };
+        if (!cancelled) setUpcoming(body.upcoming ?? []);
+      } catch {
+        if (!cancelled) setUpcoming([]);
+      } finally {
+        if (!cancelled) setUpcomingLoading(false);
+      }
+    }
+
+    void loadUpcoming();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceSlug, reloadToken]);
 
   useEffect(() => {
     if (initialLoad || refreshing) return;
@@ -431,6 +485,96 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
     }
   }
 
+  async function settleObligation(item: UpcomingItem) {
+    if (item.kind !== "obligation") return;
+    if (!window.confirm(`Mark ${item.label} as paid and add an expense?`)) return;
+    setSettlingId(item.id);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Not signed in");
+        return;
+      }
+
+      const project =
+        item.project_slug ||
+        org.ungrouped_projects[0]?.slug ||
+        org.collections[0]?.projects[0]?.slug;
+
+      if (!project) {
+        setError("Create a project before marking a payment as paid.");
+        return;
+      }
+
+      const res = await fetch(
+        `${API_URL}/api/v1/workspaces/${workspaceSlug}/obligations/${item.id}/settle`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ project }),
+        },
+      );
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "Could not settle payment.");
+        return;
+      }
+      reloadDashboard();
+    } catch {
+      setError("Could not settle payment.");
+    } finally {
+      setSettlingId(null);
+    }
+  }
+
+  async function openEditObligation(item: UpcomingItem) {
+    if (item.kind !== "obligation") return;
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    try {
+      const res = await fetch(
+        `${API_URL}/api/v1/workspaces/${workspaceSlug}/obligations/${item.id}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } },
+      );
+      if (!res.ok) return;
+      const body = (await res.json()) as {
+        obligation: {
+          id: string;
+          payee: string;
+          amount_original: number;
+          currency: string;
+          due_date: string;
+          remind_at: string | null;
+          notes: string | null;
+        };
+      };
+      setComposer(null);
+      setEditingId(null);
+      setEditingObligation({
+        id: body.obligation.id,
+        payee: body.obligation.payee,
+        amount: Number(body.obligation.amount_original),
+        currency: body.obligation.currency,
+        due_date: body.obligation.due_date,
+        remind_at: body.obligation.remind_at,
+        notes: body.obligation.notes,
+        project_slug: item.project_slug ?? null,
+      });
+    } catch {
+      setError("Could not load payment due.");
+    }
+  }
+
   const sourceActivity = useMemo(() => {
     if (hasActiveSpendFilters(filters)) {
       return getMetricsCache(workspaceSlug, period, {})?.activity ?? activity;
@@ -450,20 +594,25 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
 
   const editingRow = displayActivity?.activity.find((row) => row.id === editingId) ?? null;
 
-  const modalOpen = composer !== null || editingId !== null;
+  const modalOpen = composer !== null || editingId !== null || editingObligation !== null;
 
   const modalTitle =
-    editingRow?.message_type === "subscription"
-      ? "Edit subscription"
-      : editingRow?.message_type === "expense"
-        ? "Edit expense"
-        : composer === "subscription"
-          ? "Add subscription"
-          : "Add expense";
+    editingObligation
+      ? "Edit payment due"
+      : editingRow?.message_type === "subscription"
+        ? "Edit subscription"
+        : editingRow?.message_type === "expense"
+          ? "Edit expense"
+          : composer === "subscription"
+            ? "Add subscription"
+            : composer === "obligation"
+              ? "Add payment due"
+              : "Add expense";
 
   const closeModal = useCallback(() => {
     setComposer(null);
     setEditingId(null);
+    setEditingObligation(null);
   }, []);
 
   const ledgerRows =
@@ -573,6 +722,7 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
                 className="dash-btn"
                 onClick={() => {
                   setEditingId(null);
+                  setEditingObligation(null);
                   setComposer("expense");
                 }}
               >
@@ -580,9 +730,21 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
               </button>
               <button
                 type="button"
+                className="dash-btn"
+                onClick={() => {
+                  setEditingId(null);
+                  setEditingObligation(null);
+                  setComposer("obligation");
+                }}
+              >
+                Add payment due
+              </button>
+              <button
+                type="button"
                 className="dash-btn dash-btn--primary"
                 onClick={() => {
                   setEditingId(null);
+                  setEditingObligation(null);
                   setComposer("subscription");
                 }}
               >
@@ -650,12 +812,20 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
         </div>
 
         <aside className="activity-page__detail">
+          <UpcomingPayments
+            items={upcoming}
+            loading={upcomingLoading}
+            settlingId={settlingId}
+            onSettle={(item) => void settleObligation(item)}
+            onEdit={(item) => void openEditObligation(item)}
+          />
           <TransactionDetail
             row={selectedRow}
             editingId={editingId}
             deletingId={deletingId}
             onEdit={(id) => {
               setComposer(null);
+              setEditingObligation(null);
               setEditingId((current) => (current === id ? null : id));
             }}
             onDelete={(id) => void deleteRow(id)}
@@ -678,6 +848,35 @@ export function SpendDashboard({ workspaceSlug, workspaceName, org: initialOrg }
           <AddSubscriptionForm
             workspaceSlug={workspaceSlug}
             org={org}
+            onSuccess={reloadDashboard}
+            onCancel={closeModal}
+          />
+        ) : null}
+
+        {composer === "obligation" ? (
+          <AddObligationForm
+            workspaceSlug={workspaceSlug}
+            org={org}
+            onSuccess={reloadDashboard}
+            onCancel={closeModal}
+          />
+        ) : null}
+
+        {editingObligation ? (
+          <AddObligationForm
+            workspaceSlug={workspaceSlug}
+            org={org}
+            mode="edit"
+            obligationId={editingObligation.id}
+            initial={{
+              project: editingObligation.project_slug ?? "",
+              payee: editingObligation.payee,
+              amount: String(editingObligation.amount),
+              currency: editingObligation.currency,
+              dueDate: editingObligation.due_date.slice(0, 10),
+              remindAt: editingObligation.remind_at?.slice(0, 10) ?? "",
+              notes: editingObligation.notes ?? "",
+            }}
             onSuccess={reloadDashboard}
             onCancel={closeModal}
           />

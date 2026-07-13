@@ -11,6 +11,7 @@ export const VALID_PERMISSIONS = new Set<string>([
   "read_summaries",
   "estimate_costs",
   "manage_subscriptions",
+  "manage_obligations",
   "manage_projects",
   "delete_records",
 ]);

@@ -69,7 +69,7 @@ export async function authenticateRequest(
   if (devKey && envApiKeyAllowed() && safeEqual(token, devKey)) {
     return {
       workspaceId: DEMO_WORKSPACE_ID,
-      permissions: ["log_usage", "add_expenses", "read_summaries", "estimate_costs", "manage_projects"],
+      permissions: ["log_usage", "add_expenses", "read_summaries", "estimate_costs", "manage_projects", "manage_subscriptions", "manage_obligations"],
       projectId: null,
       policy: null,
     };
