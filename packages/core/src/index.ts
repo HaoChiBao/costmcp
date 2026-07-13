@@ -45,6 +45,40 @@ export const ExpenseTypeSchema = z.enum([
 ]);
 export type ExpenseType = z.infer<typeof ExpenseTypeSchema>;
 
+/** Accept ISO datetime or date-only YYYY-MM-DD (stored as UTC midnight). */
+export function normalizeIsoDateTime(input: string): string {
+  const trimmed = input.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return `${trimmed}T00:00:00.000Z`;
+  }
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Invalid date/time");
+  }
+  return date.toISOString();
+}
+
+export function parseOptionalIsoDateTime(input: unknown): string | undefined {
+  if (input == null || input === "") return undefined;
+  if (typeof input !== "string") {
+    throw new Error("Date must be a string");
+  }
+  return normalizeIsoDateTime(input);
+}
+
+const OptionalFlexibleDateSchema = z
+  .string()
+  .optional()
+  .transform((s, ctx) => {
+    if (s == null || s === "") return undefined;
+    try {
+      return normalizeIsoDateTime(s);
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid date/time" });
+      return z.NEVER;
+    }
+  });
+
 export const UsageMessageSchema = z.object({
   type: z.literal("usage"),
   provider: z.string().min(1).max(FIELD_LIMITS.provider),
@@ -77,7 +111,7 @@ export const SubscriptionMessageSchema = z.object({
   amount: MoneyAmountSchema,
   currency: z.string().default("USD"),
   interval: z.enum(["monthly", "yearly", "weekly", "quarterly"]),
-  renewal_date: z.string().datetime().optional(),
+  renewal_date: OptionalFlexibleDateSchema,
   category: z.string().max(64).optional(),
   project_allocation: z.string().max(64).optional(),
   status: z.enum(["active", "trial", "paused", "cancelled"]).default("active"),
@@ -122,7 +156,7 @@ export const CostMessageEnvelopeSchema = z.object({
   project: z.string().min(1).max(FIELD_LIMITS.project),
   source: MessageSourceSchema.default("api"),
   idempotency_key: z.string().optional(),
-  timestamp: z.string().datetime().optional(),
+  timestamp: OptionalFlexibleDateSchema,
   message: CostMessagePayloadSchema,
 });
 

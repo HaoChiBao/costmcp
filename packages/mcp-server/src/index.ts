@@ -118,7 +118,15 @@ server.tool(
     category: z.string().optional(),
     notes: z.string().optional(),
     status: z.enum(["active", "trial", "paused", "cancelled"]).optional(),
-    timestamp: z.string().datetime().optional(),
+    renewal_date: z
+      .string()
+      .optional()
+      .describe("Next renewal date (YYYY-MM-DD or ISO 8601)"),
+    started_at: z
+      .string()
+      .optional()
+      .describe("Billing start date (YYYY-MM-DD or ISO 8601)"),
+    timestamp: z.string().optional().describe("Alias for started_at"),
   },
   async (args) => {
     const result = await apiFetch("/api/v1/messages", {
@@ -126,7 +134,7 @@ server.tool(
       body: JSON.stringify({
         project: args.project,
         source: "mcp",
-        timestamp: args.timestamp,
+        timestamp: args.started_at ?? args.timestamp,
         message: {
           type: "subscription",
           vendor: args.vendor,
@@ -136,8 +144,68 @@ server.tool(
           category: args.category,
           notes: args.notes,
           status: args.status,
+          renewal_date: args.renewal_date,
         },
       }),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "list_subscriptions",
+  "List subscription records with renewal and billing dates",
+  {
+    project: z.string().optional().describe("Filter by project slug"),
+  },
+  async (args) => {
+    const params = new URLSearchParams();
+    if (args.project) params.set("project", args.project);
+    const qs = params.toString();
+    const result = await apiFetch(`/api/v1/subscriptions${qs ? `?${qs}` : ""}`);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "update_subscription",
+  "Update an existing subscription (by id or project+vendor)",
+  {
+    id: z.string().optional(),
+    project: z.string().optional(),
+    vendor: z.string().optional(),
+    amount: z.number().optional(),
+    currency: z.string().optional(),
+    interval: z.enum(["monthly", "yearly", "weekly", "quarterly"]).optional(),
+    category: z.string().optional(),
+    notes: z.string().optional(),
+    status: z.enum(["active", "trial", "paused", "cancelled"]).optional(),
+    renewal_date: z.string().optional(),
+    started_at: z.string().optional(),
+  },
+  async (args) => {
+    const { id, project, vendor, ...patch } = args;
+    let path = "/api/v1/subscriptions";
+    if (id) path += `/${encodeURIComponent(id)}`;
+    else if (!project || !vendor) {
+      throw new Error("id or (project and vendor) is required");
+    } else {
+      const listed = (await apiFetch(
+        `/api/v1/subscriptions?project=${encodeURIComponent(project)}`,
+      )) as { subscriptions?: Array<{ id: string; vendor: string | null }> };
+      const match = listed.subscriptions?.find(
+        (s) => s.vendor?.toLowerCase() === vendor.toLowerCase(),
+      );
+      if (!match?.id) throw new Error(`Subscription not found for vendor "${vendor}"`);
+      path += `/${encodeURIComponent(match.id)}`;
+    }
+    const result = await apiFetch(path, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
     });
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
