@@ -3,7 +3,7 @@ title: MCP overview
 description: Two ways to connect agents — local stdio and remote OAuth HTTP.
 ---
 
-CostMCP exposes MCP tools so Cursor, Claude, ChatGPT, and other agents can log costs and query spend.
+CostMCP exposes MCP tools so Cursor, Claude, ChatGPT, and other agents can log costs, track payables, and query spend.
 
 ## Transports
 
@@ -11,7 +11,7 @@ CostMCP exposes MCP tools so Cursor, Claude, ChatGPT, and other agents can log c
 |--|-------------|-------------|
 | **Package / path** | `packages/mcp-server` | `https://mcp.costmcp.com` |
 | **Auth** | `COSTMCP_API_KEY` | OAuth `cmcp_at_...` or API key |
-| **Tools** | 4 | 5 (+ `get_monthly_summary`) |
+| **Tools** | All except `get_monthly_summary` | Full set including `get_monthly_summary` |
 | **Best for** | Cursor / Claude Desktop | Hosted agents needing OAuth |
 
 **Agent URL:** paste `https://mcp.costmcp.com` into ChatGPT / Claude / Cursor remote MCP configs.
@@ -22,13 +22,25 @@ CostMCP exposes MCP tools so Cursor, Claude, ChatGPT, and other agents can log c
 |------|------------|---------|
 | `log_usage` | `log_usage` | Record usage events |
 | `add_expense` | `add_expenses` | Log purchases / invoices |
+| `add_subscription` | `manage_subscriptions` | Log recurring charges |
+| `list_subscriptions` | `read_summaries` | List subscriptions + renewal dates |
+| `update_subscription` | `manage_subscriptions` | Update amount, renewal, status |
+| `add_obligation` | `manage_obligations` | Track money you owe (not spend until settled) |
+| `list_obligations` | `read_summaries` | List open / paid / cancelled dues |
+| `update_obligation` | `manage_obligations` | Update payee, amount, due date |
+| `settle_obligation` | `manage_obligations` | Mark paid and post an expense |
+| `list_upcoming_payments` | `read_summaries` | Upcoming dues + subscription renewals |
+| `create_project` | `manage_projects` | Create a project |
+| `list_projects` | `read_summaries` | List projects |
+| `update_project` | `manage_projects` | Update / archive a project |
+| `estimate_cost` | `estimate_costs` | Price lookup before logging |
 | `get_project_spend` | `read_summaries` | Project drill-down |
 | `get_budget_status` | `read_summaries` | Budget remaining |
 | `get_monthly_summary` | `read_summaries` | Monthly rollup (**remote only**) |
 
 ## Safety defaults
 
-- ✅ Log usage, add expenses, read summaries, estimate (reserved)
+- ✅ Log usage, add expenses, manage subscriptions/obligations, read summaries, estimate
 - ❌ Delete records, bulk export, change billing settings
 
 <CardGroup cols={2}>

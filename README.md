@@ -89,7 +89,7 @@ costmcp/
 | Local stdio | `pnpm mcp:dev` (`packages/mcp-server`) |
 | Local HTTP | `http://localhost:3000/api/mcp` |
 
-Tools: `log_usage`, `add_expense`, `get_project_spend`, `get_budget_status`, `get_monthly_summary` (remote only).
+Tools: `log_usage`, `add_expense`, `add_subscription`, `list_subscriptions`, `update_subscription`, `add_obligation`, `list_obligations`, `update_obligation`, `settle_obligation`, `list_upcoming_payments`, `create_project`, `list_projects`, `update_project`, `estimate_cost`, `get_project_spend`, `get_budget_status`, `get_monthly_summary` (remote only).
 
 ```json
 {
