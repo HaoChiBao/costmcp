@@ -998,3 +998,259 @@ export async function getWorkspaceMetrics(
     top_project: top ? { slug: top.slug, name: top.name, amount_usd: top.amount_usd } : null,
   };
 }
+
+export type ObligationRow = Database["public"]["Tables"]["obligations"]["Row"];
+export type ObligationInsert = Database["public"]["Tables"]["obligations"]["Insert"];
+export type ObligationUpdate = Database["public"]["Tables"]["obligations"]["Update"];
+
+const OBLIGATION_SELECT =
+  "id, workspace_id, project_id, vendor_id, payee, amount_original, currency, amount_usd, due_date, remind_at, status, notes, paid_at, settled_message_id, source, created_at, updated_at";
+
+export async function insertObligation(
+  client: SupabaseClient<Database>,
+  input: ObligationInsert,
+) {
+  const { data, error } = await client
+    .from("obligations")
+    .insert(input)
+    .select(OBLIGATION_SELECT)
+    .single();
+  if (error) throw error;
+  return data as ObligationRow;
+}
+
+export async function getObligationById(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  id: string,
+) {
+  const { data, error } = await client
+    .from("obligations")
+    .select(OBLIGATION_SELECT)
+    .eq("workspace_id", workspaceId)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data as ObligationRow | null;
+}
+
+export async function listObligations(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  opts?: {
+    status?: string;
+    dueBefore?: string;
+    dueAfter?: string;
+    limit?: number;
+  },
+) {
+  let query = client
+    .from("obligations")
+    .select(OBLIGATION_SELECT)
+    .eq("workspace_id", workspaceId)
+    .order("due_date", { ascending: true })
+    .limit(opts?.limit ?? 200);
+
+  if (opts?.status) query = query.eq("status", opts.status);
+  if (opts?.dueBefore) query = query.lte("due_date", opts.dueBefore);
+  if (opts?.dueAfter) query = query.gte("due_date", opts.dueAfter);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as ObligationRow[];
+}
+
+export async function updateObligation(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  id: string,
+  patch: ObligationUpdate,
+) {
+  const { data, error } = await client
+    .from("obligations")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("workspace_id", workspaceId)
+    .eq("id", id)
+    .select(OBLIGATION_SELECT)
+    .maybeSingle();
+  if (error) throw error;
+  return data as ObligationRow | null;
+}
+
+export async function deleteObligation(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  id: string,
+) {
+  const { data, error } = await client
+    .from("obligations")
+    .delete()
+    .eq("workspace_id", workspaceId)
+    .eq("id", id)
+    .select(OBLIGATION_SELECT)
+    .maybeSingle();
+  if (error) throw error;
+  return data as ObligationRow | null;
+}
+
+export type UpcomingSubscriptionRenewal = {
+  kind: "subscription";
+  id: string;
+  label: string;
+  amount_usd: number;
+  currency: string;
+  amount_original: number | null;
+  due_date: string;
+  project_id: string | null;
+  project_slug: string | null;
+  project_name: string | null;
+  interval: string | null;
+  status: string | null;
+};
+
+export type UpcomingObligationItem = {
+  kind: "obligation";
+  id: string;
+  label: string;
+  amount_usd: number;
+  currency: string;
+  amount_original: number;
+  due_date: string;
+  remind_at: string | null;
+  project_id: string | null;
+  project_slug: string | null;
+  project_name: string | null;
+  status: string;
+  overdue: boolean;
+};
+
+export type UpcomingPayment =
+  | UpcomingSubscriptionRenewal
+  | UpcomingObligationItem;
+
+export async function listUpcomingPayments(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  opts?: { days?: number; includeOverdue?: boolean },
+): Promise<UpcomingPayment[]> {
+  const days = opts?.days ?? 30;
+  const includeOverdue = opts?.includeOverdue ?? true;
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().slice(0, 10);
+  const until = new Date(today);
+  until.setUTCDate(until.getUTCDate() + days);
+  const untilStr = until.toISOString().slice(0, 10);
+
+  const obligations = await listObligations(client, workspaceId, {
+    status: "open",
+    dueBefore: untilStr,
+    dueAfter: includeOverdue ? undefined : todayStr,
+    limit: 200,
+  });
+
+  const projectIds = [
+    ...new Set(
+      obligations
+        .map((o) => o.project_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const projectMap = new Map<string, { slug: string; name: string }>();
+  if (projectIds.length) {
+    const { data: projects, error } = await client
+      .from("projects")
+      .select("id, slug, name")
+      .eq("workspace_id", workspaceId)
+      .in("id", projectIds);
+    if (error) throw error;
+    for (const p of projects ?? []) {
+      projectMap.set(String(p.id), { slug: String(p.slug), name: String(p.name) });
+    }
+  }
+
+  const items: UpcomingPayment[] = obligations
+    .filter((o) => includeOverdue || o.due_date >= todayStr)
+    .map((o) => {
+      const project = o.project_id ? projectMap.get(o.project_id) : undefined;
+      return {
+        kind: "obligation" as const,
+        id: o.id,
+        label: o.payee,
+        amount_usd: Number(o.amount_usd),
+        currency: o.currency,
+        amount_original: Number(o.amount_original),
+        due_date: o.due_date,
+        remind_at: o.remind_at,
+        project_id: o.project_id,
+        project_slug: project?.slug ?? null,
+        project_name: project?.name ?? null,
+        status: o.status,
+        overdue: o.due_date < todayStr,
+      };
+    });
+
+  const { data: subs, error: subError } = await client
+    .from("cost_messages")
+    .select("id, amount_usd, currency, amount_original, project_id, metadata")
+    .eq("workspace_id", workspaceId)
+    .eq("message_type", "subscription")
+    .is("voided_at", null)
+    .limit(200);
+  if (subError) throw subError;
+
+  const subProjectIds = [
+    ...new Set(
+      (subs ?? [])
+        .map((r) => r.project_id as string | null)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const missing = subProjectIds.filter((id) => !projectMap.has(id));
+  if (missing.length) {
+    const { data: projects, error } = await client
+      .from("projects")
+      .select("id, slug, name")
+      .eq("workspace_id", workspaceId)
+      .in("id", missing);
+    if (error) throw error;
+    for (const p of projects ?? []) {
+      projectMap.set(String(p.id), { slug: String(p.slug), name: String(p.name) });
+    }
+  }
+
+  for (const row of subs ?? []) {
+    const meta = (row.metadata ?? {}) as Record<string, unknown>;
+    const status = typeof meta.status === "string" ? meta.status : "active";
+    if (status === "cancelled" || status === "paused") continue;
+    const renewalRaw = meta.renewal_date;
+    if (typeof renewalRaw !== "string" || !renewalRaw) continue;
+    const due = renewalRaw.slice(0, 10);
+    if (due > untilStr) continue;
+    if (!includeOverdue && due < todayStr) continue;
+
+    const project = row.project_id
+      ? projectMap.get(String(row.project_id))
+      : undefined;
+
+    items.push({
+      kind: "subscription",
+      id: String(row.id),
+      label: typeof meta.vendor === "string" ? meta.vendor : "Subscription",
+      amount_usd: Number(row.amount_usd ?? 0),
+      currency: String(row.currency ?? "USD"),
+      amount_original:
+        row.amount_original != null ? Number(row.amount_original) : null,
+      due_date: due,
+      project_id: (row.project_id as string | null) ?? null,
+      project_slug: project?.slug ?? null,
+      project_name: project?.name ?? null,
+      interval: typeof meta.interval === "string" ? meta.interval : null,
+      status,
+    });
+  }
+
+  items.sort((a, b) => a.due_date.localeCompare(b.due_date));
+  return items;
+}

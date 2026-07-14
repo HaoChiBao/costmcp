@@ -214,6 +214,132 @@ server.tool(
 );
 
 server.tool(
+  "add_obligation",
+  "Track money you owe: payee, amount, and due date (not spend until settled)",
+  {
+    payee: z.string(),
+    amount: z.number().positive(),
+    currency: z.string().default("USD"),
+    due_date: z.string().describe("YYYY-MM-DD or ISO datetime"),
+    remind_at: z.string().optional(),
+    project: z.string().optional(),
+    vendor: z.string().optional(),
+    notes: z.string().optional(),
+  },
+  async (args) => {
+    const result = await apiFetch("/api/v1/obligations", {
+      method: "POST",
+      body: JSON.stringify({
+        payee: args.payee,
+        amount: args.amount,
+        currency: args.currency,
+        due_date: args.due_date,
+        remind_at: args.remind_at,
+        project: args.project,
+        vendor: args.vendor,
+        notes: args.notes,
+        source: "mcp",
+      }),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "list_obligations",
+  "List payment obligations (who you owe)",
+  {
+    status: z.enum(["open", "paid", "cancelled"]).optional(),
+    due_before: z.string().optional(),
+    due_after: z.string().optional(),
+  },
+  async (args) => {
+    const params = new URLSearchParams();
+    if (args.status) params.set("status", args.status);
+    if (args.due_before) params.set("due_before", args.due_before);
+    if (args.due_after) params.set("due_after", args.due_after);
+    const qs = params.toString();
+    const result = await apiFetch(`/api/v1/obligations${qs ? `?${qs}` : ""}`);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "update_obligation",
+  "Update an obligation's amount, due date, notes, or status",
+  {
+    id: z.string().describe("Obligation UUID"),
+    payee: z.string().optional(),
+    amount: z.number().positive().optional(),
+    currency: z.string().optional(),
+    due_date: z.string().optional(),
+    remind_at: z.string().optional(),
+    project: z.string().optional(),
+    vendor: z.string().optional(),
+    notes: z.string().optional(),
+    status: z.enum(["open", "paid", "cancelled"]).optional(),
+  },
+  async (args) => {
+    const { id, ...patch } = args;
+    const result = await apiFetch(`/api/v1/obligations/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "settle_obligation",
+  "Mark an obligation paid and post a matching expense",
+  {
+    id: z.string().describe("Obligation UUID"),
+    project: z.string().optional().describe("Required if obligation has no project"),
+    category: z.string().optional(),
+    notes: z.string().optional(),
+    occurred_at: z.string().datetime().optional(),
+  },
+  async (args) => {
+    const { id, ...body } = args;
+    const result = await apiFetch(
+      `/api/v1/obligations/${encodeURIComponent(id)}/settle`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    );
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "list_upcoming_payments",
+  "List upcoming obligations and subscription renewals",
+  {
+    days: z.number().positive().optional().describe("Lookahead days (default 30)"),
+    include_overdue: z.boolean().optional(),
+  },
+  async (args) => {
+    const params = new URLSearchParams();
+    if (args.days) params.set("days", String(args.days));
+    if (args.include_overdue === false) params.set("include_overdue", "0");
+    const qs = params.toString();
+    const result = await apiFetch(`/api/v1/upcoming${qs ? `?${qs}` : ""}`);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
   "create_project",
   "Create a new project in the workspace before logging costs",
   {

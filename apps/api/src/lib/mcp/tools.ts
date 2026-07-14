@@ -9,6 +9,14 @@ import {
   requirePermission,
 } from "@/lib/auth";
 import { subscriptionFromRow, updateSubscriptionMessage } from "@/lib/subscription-ledger";
+import {
+  createObligationRecord,
+  listObligationRecords,
+  listUpcomingPaymentRecords,
+  settleObligationRecord,
+  statusFromError,
+  updateObligationRecord,
+} from "@/lib/obligations";
 import type { McpAuthContext } from "@/lib/mcp/auth";
 
 export interface McpTool {
@@ -295,6 +303,205 @@ export const MCP_TOOLS: McpTool[] = [
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to update subscription";
         throw new McpToolError(message);
+      }
+    },
+  },
+  {
+    name: "add_obligation",
+    description:
+      "Track money you owe (a payable/payment due): who to pay, amount, and due date. Does not count as spent until settled.",
+    permission: "manage_obligations",
+    inputSchema: {
+      type: "object",
+      properties: {
+        payee: {
+          type: "string",
+          description: "Person or vendor you owe (e.g. Alice, AWS)",
+        },
+        amount: { type: "number", description: "Positive amount owed" },
+        currency: { type: "string", default: "USD" },
+        due_date: {
+          type: "string",
+          description: "Due date (YYYY-MM-DD or ISO datetime)",
+        },
+        remind_at: {
+          type: "string",
+          description: "Optional reminder date (defaults to due_date − 3 days)",
+        },
+        project: { type: "string", description: "Optional project slug" },
+        vendor: {
+          type: "string",
+          description: "Optional vendor name (defaults to payee)",
+        },
+        notes: { type: "string" },
+      },
+      required: ["payee", "amount", "due_date"],
+    },
+    handler: async (ctx, args) => {
+      try {
+        const obligation = await createObligationRecord(ctx.workspaceId, {
+          payee: str(args.payee),
+          amount: num(args.amount),
+          currency: str(args.currency) ?? "USD",
+          due_date: str(args.due_date),
+          remind_at: str(args.remind_at),
+          project: str(args.project),
+          vendor: str(args.vendor),
+          notes: str(args.notes),
+          source: "mcp",
+        });
+        return { obligation, created: true };
+      } catch (err) {
+        throw new McpToolError(
+          err instanceof Error ? err.message : "Failed to add obligation",
+        );
+      }
+    },
+  },
+  {
+    name: "list_obligations",
+    description: "List payment obligations (who you owe), optionally filtered by status or due window.",
+    permission: "read_summaries",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          description: "open, paid, or cancelled",
+        },
+        due_before: { type: "string", description: "YYYY-MM-DD" },
+        due_after: { type: "string", description: "YYYY-MM-DD" },
+      },
+    },
+    handler: async (ctx, args) => {
+      try {
+        const obligations = await listObligationRecords(ctx.workspaceId, {
+          status: str(args.status),
+          dueBefore: str(args.due_before),
+          dueAfter: str(args.due_after),
+        });
+        return { obligations, count: obligations.length };
+      } catch (err) {
+        throw new McpToolError(
+          err instanceof Error ? err.message : "Failed to list obligations",
+        );
+      }
+    },
+  },
+  {
+    name: "update_obligation",
+    description: "Update an obligation's payee, amount, due date, notes, or status.",
+    permission: "manage_obligations",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Obligation UUID" },
+        payee: { type: "string" },
+        amount: { type: "number" },
+        currency: { type: "string" },
+        due_date: { type: "string" },
+        remind_at: { type: "string" },
+        project: { type: "string" },
+        vendor: { type: "string" },
+        notes: { type: "string" },
+        status: { type: "string", description: "open, paid, or cancelled" },
+      },
+      required: ["id"],
+    },
+    handler: async (ctx, args) => {
+      const id = str(args.id)?.trim() ?? "";
+      if (!id) throw new McpToolError("id is required");
+      try {
+        const patch: Record<string, unknown> = {};
+        if (args.payee !== undefined) patch.payee = str(args.payee);
+        if (args.amount !== undefined) patch.amount = num(args.amount);
+        if (args.currency !== undefined) patch.currency = str(args.currency);
+        if (args.due_date !== undefined) patch.due_date = str(args.due_date);
+        if (args.remind_at !== undefined) patch.remind_at = str(args.remind_at);
+        if (args.project !== undefined) patch.project = str(args.project);
+        if (args.vendor !== undefined) patch.vendor = str(args.vendor);
+        if (args.notes !== undefined) patch.notes = str(args.notes);
+        if (args.status !== undefined) patch.status = str(args.status);
+        const obligation = await updateObligationRecord(ctx.workspaceId, id, patch);
+        return { obligation, updated: true };
+      } catch (err) {
+        const status = statusFromError(err);
+        throw new McpToolError(
+          err instanceof Error ? err.message : `Failed to update (${status})`,
+        );
+      }
+    },
+  },
+  {
+    name: "settle_obligation",
+    description:
+      "Mark an obligation as paid and post a matching expense to the cost ledger.",
+    permission: "manage_obligations",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Obligation UUID" },
+        project: {
+          type: "string",
+          description: "Project slug (required if obligation has no project)",
+        },
+        category: { type: "string" },
+        notes: { type: "string" },
+        occurred_at: {
+          type: "string",
+          description: "When payment occurred (ISO 8601)",
+        },
+      },
+      required: ["id"],
+    },
+    handler: async (ctx, args) => {
+      const id = str(args.id)?.trim() ?? "";
+      if (!id) throw new McpToolError("id is required");
+      try {
+        return await settleObligationRecord(ctx.workspaceId, id, {
+          project: str(args.project),
+          category: str(args.category),
+          notes: str(args.notes),
+          occurred_at: str(args.occurred_at),
+        });
+      } catch (err) {
+        throw new McpToolError(
+          err instanceof Error ? err.message : "Failed to settle obligation",
+        );
+      }
+    },
+  },
+  {
+    name: "list_upcoming_payments",
+    description:
+      "List upcoming payments: open obligations by due date plus subscription renewals.",
+    permission: "read_summaries",
+    inputSchema: {
+      type: "object",
+      properties: {
+        days: {
+          type: "number",
+          description: "Lookahead window in days (default 30)",
+        },
+        include_overdue: {
+          type: "boolean",
+          description: "Include overdue items (default true)",
+        },
+      },
+    },
+    handler: async (ctx, args) => {
+      try {
+        const days = num(args.days) ?? 30;
+        const includeOverdue = bool(args.include_overdue) ?? true;
+        const upcoming = await listUpcomingPaymentRecords(ctx.workspaceId, {
+          days,
+          includeOverdue,
+        });
+        return { upcoming, count: upcoming.length, days };
+      } catch (err) {
+        throw new McpToolError(
+          err instanceof Error ? err.message : "Failed to list upcoming payments",
+        );
       }
     },
   },
