@@ -53,7 +53,44 @@ Permission: `manage_subscriptions`
 | `category` | string | | |
 | `notes` | string | | |
 | `status` | string | | `active` |
-| `timestamp` | ISO datetime | | now |
+| `renewal_date` | ISO date or `YYYY-MM-DD` | | next renewal |
+| `started_at` | ISO date or `YYYY-MM-DD` | | billing start (`occurred_at`) |
+| `timestamp` | ISO date | | alias for `started_at` |
+
+## `list_subscriptions`
+
+Permission: `read_summaries`
+
+| Param | Type | Required |
+|-------|------|----------|
+| `project` | string | |
+
+Returns subscription `id`, vendor, amount, `renewal_date`, and `occurred_at` (billing start).
+
+**Local:** `GET /api/v1/subscriptions`.  
+**Remote:** DB query.
+
+## `update_subscription`
+
+Permission: `manage_subscriptions`
+
+| Param | Type | Required |
+|-------|------|----------|
+| `id` | string | ✓* |
+| `project` | string | ✓* |
+| `vendor` | string | ✓* |
+| `amount` | number | |
+| `currency` | string | |
+| `interval` | string | |
+| `renewal_date` | ISO date or `YYYY-MM-DD` | |
+| `started_at` | ISO date or `YYYY-MM-DD` | |
+| `status` | string | |
+| `notes` | string | |
+
+\* Provide `id`, or both `project` and `vendor` to identify the subscription.
+
+**Local:** `PATCH /api/v1/subscriptions/{id}`.  
+**Remote:** DB update via service role.
 
 ## `add_obligation`
 

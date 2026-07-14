@@ -1,4 +1,4 @@
-import { parseCostMessage } from "@costmcp/core";
+import { parseCostMessage, parseOptionalIsoDateTime } from "@costmcp/core";
 
 export type ManualLedgerBody = {
   project?: unknown;
@@ -19,11 +19,11 @@ export function parseOccurredAt(value: unknown): string | undefined {
   if (typeof value !== "string") {
     throw Object.assign(new Error("occurred_at must be a string"), { status: 400 });
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  try {
+    return parseOptionalIsoDateTime(value);
+  } catch {
     throw Object.assign(new Error("occurred_at must be a valid date/time"), { status: 400 });
   }
-  return date.toISOString();
 }
 
 export function parseManualExpenseEnvelope(body: ManualLedgerBody) {
@@ -49,13 +49,13 @@ export function parseManualSubscriptionEnvelope(body: ManualLedgerBody) {
   const occurredAt = parseOccurredAt(body.occurred_at);
   let renewalDate: string | undefined;
   if (typeof body.renewal_date === "string" && body.renewal_date.trim()) {
-    const d = new Date(body.renewal_date);
-    if (Number.isNaN(d.getTime())) {
+    try {
+      renewalDate = parseOptionalIsoDateTime(body.renewal_date);
+    } catch {
       throw Object.assign(new Error("renewal_date must be a valid date/time"), {
         status: 400,
       });
     }
-    renewalDate = d.toISOString();
   }
 
   return parseCostMessage({

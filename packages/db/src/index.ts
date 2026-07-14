@@ -258,6 +258,96 @@ export async function getCostMessageById(
   return data;
 }
 
+export type SubscriptionLedgerRow = {
+  id: string;
+  project_id: string | null;
+  amount_usd: number;
+  amount_original: number | null;
+  currency: string;
+  occurred_at: string;
+  metadata: Record<string, unknown> | null;
+  projects: { slug: string; name: string } | null;
+};
+
+export async function listSubscriptions(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  opts?: { projectId?: string },
+): Promise<SubscriptionLedgerRow[]> {
+  let query = client
+    .from("cost_messages")
+    .select("id, project_id, amount_usd, amount_original, currency, occurred_at, metadata")
+    .eq("workspace_id", workspaceId)
+    .eq("message_type", "subscription")
+    .is("voided_at", null)
+    .order("occurred_at", { ascending: false })
+    .limit(200);
+
+  if (opts?.projectId) {
+    query = query.eq("project_id", opts.projectId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  const rows = data ?? [];
+
+  const projectIds = [
+    ...new Set(rows.map((row) => row.project_id).filter((id): id is string => Boolean(id))),
+  ];
+  const projectById = new Map<string, { slug: string; name: string }>();
+  if (projectIds.length) {
+    const { data: projects, error: projectError } = await client
+      .from("projects")
+      .select("id, slug, name")
+      .in("id", projectIds);
+    if (projectError) throw projectError;
+    for (const project of projects ?? []) {
+      projectById.set(project.id, { slug: project.slug, name: project.name });
+    }
+  }
+
+  return rows.map((row) => ({
+    id: row.id as string,
+    project_id: row.project_id as string | null,
+    amount_usd: Number(row.amount_usd),
+    amount_original: row.amount_original as number | null,
+    currency: row.currency as string,
+    occurred_at: row.occurred_at as string,
+    metadata: (row.metadata as Record<string, unknown> | null) ?? null,
+    projects: row.project_id ? projectById.get(row.project_id as string) ?? null : null,
+  }));
+}
+
+export async function findLatestSubscriptionByVendor(
+  client: SupabaseClient<Database>,
+  workspaceId: string,
+  projectId: string,
+  vendor: string,
+) {
+  const { data, error } = await client
+    .from("cost_messages")
+    .select(
+      "id, workspace_id, project_id, vendor_id, message_type, amount_usd, currency, amount_original, source, metadata, cost_category_id, created_at, occurred_at, voided_at, feature, environment",
+    )
+    .eq("workspace_id", workspaceId)
+    .eq("project_id", projectId)
+    .eq("message_type", "subscription")
+    .is("voided_at", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) throw error;
+
+  const needle = vendor.toLowerCase().trim();
+  return (
+    (data ?? []).find((row) => {
+      const meta = row.metadata as Record<string, unknown> | null;
+      const name = meta?.vendor;
+      return typeof name === "string" && name.toLowerCase().trim() === needle;
+    }) ?? null
+  );
+}
+
 export async function findProjectBySlug(
   client: SupabaseClient<Database>,
   workspaceId: string,
