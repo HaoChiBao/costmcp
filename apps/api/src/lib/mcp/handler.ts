@@ -1,7 +1,7 @@
 import type { McpAuthContext } from "@/lib/mcp/auth";
 import { ensurePermission, findTool, MCP_TOOLS } from "@/lib/mcp/tools";
 
-const SERVER_INFO = { name: "costmcp", version: "0.1.0" };
+const SERVER_INFO = { name: "costmcp", version: "0.2.0" };
 const SUPPORTED_PROTOCOL = "2025-06-18";
 
 interface JsonRpcRequest {
@@ -42,7 +42,7 @@ export async function dispatch(
         const requested = (message.params?.protocolVersion as string) ?? SUPPORTED_PROTOCOL;
         return result(id!, {
           protocolVersion: requested,
-          capabilities: { tools: { listChanged: false } },
+          capabilities: { tools: { listChanged: true } },
           serverInfo: SERVER_INFO,
         });
       }

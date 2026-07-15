@@ -53,11 +53,11 @@ OAuth clients discover the authorization server from protected resource metadata
 
 | Method | Result |
 |--------|--------|
-| `initialize` | Protocol + `serverInfo: { name: "costmcp", version: "0.1.0" }` |
+| `initialize` | Protocol + `serverInfo: { name: "costmcp", version: "0.2.0" }` |
 | `notifications/initialized` | `202` empty |
 | `notifications/cancelled` | `202` empty |
 | `ping` | `{}` |
-| `tools/list` | Five tools |
+| `tools/list` | Full tool catalog (usage, expenses, subscriptions, obligations, projects, estimates, summaries) |
 | `tools/call` | `{ name, arguments }` → text content JSON |
 
 ## Other verbs

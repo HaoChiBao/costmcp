@@ -44,6 +44,90 @@
         "destructive_justification": "The tool only appends subscription ledger entries. CostMCP does not expose MCP tools that delete or cancel external subscriptions."
       }
     },
+    "list_subscriptions": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool lists subscription ledger rows with renewal and start dates. It performs database reads only.",
+        "open_world_justification": "Results are limited to the authenticated user's workspace subscriptions.",
+        "destructive_justification": "The tool returns JSON only and does not modify records."
+      }
+    },
+    "update_subscription": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool updates an existing subscription ledger entry (amount, renewal date, status, etc.). It modifies stored data.",
+        "open_world_justification": "Updates apply only to subscription records in the user's CostMCP workspace.",
+        "destructive_justification": "The tool updates fields in place and does not void or delete ledger history."
+      }
+    },
+    "add_obligation": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool creates a payable obligation (who the user owes, amount, due date). It writes a new record and is not read-only.",
+        "open_world_justification": "Obligations are stored only in the user's CostMCP workspace. The tool does not contact payees, send money, or call external payment rails.",
+        "destructive_justification": "The tool creates an open payable. Settling posts a separate expense; it does not delete unrelated ledger data."
+      }
+    },
+    "list_obligations": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool lists payment obligations filtered by status or due window. It is a read-only query.",
+        "open_world_justification": "Results are scoped to the authenticated workspace's obligations table.",
+        "destructive_justification": "The tool returns JSON only."
+      }
+    },
+    "update_obligation": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool updates an obligation's payee, amount, due date, notes, or status. It modifies stored data.",
+        "open_world_justification": "Updates apply only to obligations in the user's CostMCP workspace.",
+        "destructive_justification": "Paid obligations cannot be rewritten here; cancel/open updates are limited and do not void unrelated spend."
+      }
+    },
+    "settle_obligation": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool marks an obligation paid and appends a matching expense to the cost ledger. It writes new and updated records.",
+        "open_world_justification": "Settlement writes only to the user's CostMCP workspace ledger and obligations table. It does not initiate bank transfers.",
+        "destructive_justification": "The tool settles an open payable into an expense; it does not delete historical ledger rows."
+      }
+    },
+    "list_upcoming_payments": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool returns upcoming open obligations and subscription renewal dates within a lookahead window. It is read-only.",
+        "open_world_justification": "Results combine workspace obligations and subscription metadata only.",
+        "destructive_justification": "The tool returns a JSON upcoming list and does not modify data."
+      }
+    },
     "get_project_spend": {
       "annotations": {
         "readOnlyHint": true,
@@ -111,6 +195,24 @@
       "user_prompt": "Give me this month's total AI spend across all my projects, split by usage, subscriptions, and expenses.",
       "tools_triggered": "get_monthly_summary",
       "expected_output": "Returns period=month with total_usd, usage_usd, subscription_usd, expense_usd, by_project totals, and top_project."
+    },
+    {
+      "description": "Agent records money the user owes with a due date.",
+      "user_prompt": "Remind me I owe Alice $40 by Friday for dinner. Put it under marketing-site if needed.",
+      "tools_triggered": "add_obligation",
+      "expected_output": "Creates an open obligation for Alice of $40 with a due date and returns the obligation record."
+    },
+    {
+      "description": "User asks what payments are coming due soon.",
+      "user_prompt": "What payments are coming up in the next two weeks?",
+      "tools_triggered": "list_upcoming_payments",
+      "expected_output": "Returns upcoming obligations and subscription renewals with due dates, amounts, and overdue flags."
+    },
+    {
+      "description": "Agent settles a payable after the user says they paid.",
+      "user_prompt": "I paid Alice the $40 I owed — mark it paid.",
+      "tools_triggered": "settle_obligation",
+      "expected_output": "Marks the open obligation paid and posts a matching expense to the ledger."
     }
   ],
   "negative_test_cases": [
