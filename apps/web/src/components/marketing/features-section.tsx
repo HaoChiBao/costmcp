@@ -112,7 +112,12 @@ export function FeaturesSection() {
                     data-index={index}
                     className={`landing-spine__pane landing-spine__pane--left features-split__card scroll-reveal scroll-reveal--left${revealClass}${activeClass}`}
                   >
-                    <FeatureCard feature={feature} index={index} align="left" />
+                    <FeatureCard
+                      feature={feature}
+                      index={index}
+                      align="left"
+                      playing={activeIndex === index && Boolean(revealed[index])}
+                    />
                   </article>
                   <div className="landing-spine__pane landing-spine__pane--center" aria-hidden="true" />
                   <div className="landing-spine__pane landing-spine__pane--right landing-spine__pane--spacer" />
@@ -128,7 +133,12 @@ export function FeaturesSection() {
                     data-index={index}
                     className={`landing-spine__pane landing-spine__pane--right features-split__card scroll-reveal scroll-reveal--right${revealClass}${activeClass}`}
                   >
-                    <FeatureCard feature={feature} index={index} align="right" />
+                    <FeatureCard
+                      feature={feature}
+                      index={index}
+                      align="right"
+                      playing={activeIndex === index && Boolean(revealed[index])}
+                    />
                   </article>
                 </>
               )}
@@ -144,9 +154,20 @@ type FeatureCardProps = {
   feature: (typeof features)[number];
   index: number;
   align: "left" | "right";
+  playing: boolean;
 };
 
-function FeatureCard({ feature, index, align }: FeatureCardProps) {
+function FeatureCard({ feature, index, align, playing }: FeatureCardProps) {
+  const [playKey, setPlayKey] = useState(0);
+  const wasPlaying = useRef(false);
+
+  useEffect(() => {
+    if (playing && !wasPlaying.current) {
+      setPlayKey((key) => key + 1);
+    }
+    wasPlaying.current = playing;
+  }, [playing]);
+
   return (
     <div className={`features-split__card-inner features-split__card-inner--${align}`}>
       <span className="features-split__index meta-label">
@@ -154,8 +175,11 @@ function FeatureCard({ feature, index, align }: FeatureCardProps) {
       </span>
       <h3 className="features-split__title">{feature.title}</h3>
       <p className="features-split__desc">{feature.description}</p>
-      <div className="features-split__preview" aria-hidden="true">
-        <FeaturePlaceholderScene type={feature.scene} />
+      <div
+        className={`features-split__preview${playing ? " is-playing" : ""}`}
+        aria-hidden="true"
+      >
+        <FeaturePlaceholderScene key={playKey} type={feature.scene} playing={playing} />
       </div>
     </div>
   );
