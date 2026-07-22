@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { usePlaidLink } from "react-plaid-link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from "react-plaid-link";
 import { Button } from "@/components/ui/button";
 import { DashboardPanel, StatusBadge } from "@/components/ui/panel";
 import { createClient } from "@/lib/supabase/client";
@@ -73,6 +73,12 @@ export function BankConnectionsManager({
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [updateItemId, setUpdateItemId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /** Prevents re-opening Link mid-MFA when react-plaid-link recreates `open`. */
+  const openedForTokenRef = useRef<string | null>(null);
+  const updateItemIdRef = useRef<string | null>(null);
+  const onSuccessHandlerRef = useRef<
+    (publicToken: string, metadata: PlaidLinkOnSuccessMetadata) => void
+  >(() => undefined);
 
   const token = useCallback(async () => {
     const supabase = createClient();
@@ -150,7 +156,18 @@ export function BankConnectionsManager({
         if (!res.ok || !body.link_token) {
           throw new Error(body.error ?? "Could not create Plaid Link token");
         }
+        // Persist for Canadian OAuth redirect return (/plaid/oauth).
+        sessionStorage.setItem(
+          "costmcp_plaid_link",
+          JSON.stringify({
+            linkToken: body.link_token,
+            workspaceSlug,
+            updateItemId: itemId ?? null,
+          }),
+        );
+        updateItemIdRef.current = itemId ?? null;
         setUpdateItemId(itemId ?? null);
+        openedForTokenRef.current = null;
         setLinkToken(body.link_token);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Link token failed");
@@ -161,13 +178,14 @@ export function BankConnectionsManager({
   );
 
   const onSuccess = useCallback(
-    async (publicToken: string, metadata: { institution?: { institution_id: string; name: string } | null }) => {
+    async (publicToken: string, metadata: PlaidLinkOnSuccessMetadata) => {
       const accessToken = await token();
       if (!accessToken) return;
       setBusy("exchange");
+      const itemId = updateItemIdRef.current;
       try {
         // Update mode reuses the existing Item; only exchange for new links.
-        if (!updateItemId) {
+        if (!itemId) {
           const res = await fetch(
             `${apiUrl}/api/v1/workspaces/${workspaceSlug}/plaid/exchange`,
             {
@@ -187,15 +205,18 @@ export function BankConnectionsManager({
         } else {
           // After update mode, force a sync to clear login_required.
           await fetch(
-            `${apiUrl}/api/v1/workspaces/${workspaceSlug}/plaid/items/${updateItemId}/sync`,
+            `${apiUrl}/api/v1/workspaces/${workspaceSlug}/plaid/items/${itemId}/sync`,
             {
               method: "POST",
               headers: { Authorization: `Bearer ${accessToken}` },
             },
           );
         }
+        sessionStorage.removeItem("costmcp_plaid_link");
+        openedForTokenRef.current = null;
         setLinkToken(null);
         setUpdateItemId(null);
+        updateItemIdRef.current = null;
         await load();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not complete bank link");
@@ -203,22 +224,47 @@ export function BankConnectionsManager({
         setBusy(null);
       }
     },
-    [apiUrl, workspaceSlug, token, updateItemId, load],
+    [apiUrl, workspaceSlug, token, load],
   );
+
+  onSuccessHandlerRef.current = onSuccess;
 
   const { open, ready } = usePlaidLink({
     token: linkToken,
-    onSuccess,
+    // Stable wrappers — if these identities churn, `open` churns and Link can remount mid-MFA.
+    onSuccess: (publicToken, metadata) => {
+      void onSuccessHandlerRef.current(publicToken, metadata);
+    },
     onExit: () => {
+      sessionStorage.removeItem("costmcp_plaid_link");
+      openedForTokenRef.current = null;
       setLinkToken(null);
       setUpdateItemId(null);
+      updateItemIdRef.current = null;
       setBusy(null);
+    },
+    onEvent: (eventName, metadata) => {
+      if (
+        eventName === "ERROR" ||
+        eventName === "SUBMIT_MFA" ||
+        eventName === "FAIL_OAUTH"
+      ) {
+        console.info("[plaid-link]", eventName, metadata);
+      }
     },
   });
 
+  const openRef = useRef(open);
+  openRef.current = open;
+
   useEffect(() => {
-    if (linkToken && ready) open();
-  }, [linkToken, ready, open]);
+    if (!linkToken || !ready) return;
+    // Open exactly once per link_token. Re-calling open() resets RBC's MFA step
+    // (empty field + "This field is required") while the bank still counts attempts.
+    if (openedForTokenRef.current === linkToken) return;
+    openedForTokenRef.current = linkToken;
+    openRef.current();
+  }, [linkToken, ready]);
 
   async function syncItem(id: string) {
     const accessToken = await token();
@@ -272,8 +318,9 @@ export function BankConnectionsManager({
       <header className="dashboard-page__header">
         <h1 className="dashboard-page__title">Bank connections</h1>
         <p className="dashboard-page__sub">
-          Link Canadian (and other) banks via Plaid. Transactions sync into CostMCP separately
-          from your cost ledger — import to expenses comes next.
+          Link Canadian banks via Plaid (Trial: 10 connections). Start with RBC — search
+          &quot;Royal Bank&quot; in Link. For the SMS code step, type the digits manually (don&apos;t
+          use autofill), then Submit once. Wait a few minutes if RBC locks you out.
         </p>
       </header>
 

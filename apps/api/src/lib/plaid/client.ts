@@ -68,7 +68,14 @@ export function plaidWebhookUrl(): string | undefined {
 }
 
 export function plaidRedirectUri(): string | undefined {
-  return process.env.PLAID_REDIRECT_URI?.trim() || undefined;
+  const uri = process.env.PLAID_REDIRECT_URI?.trim();
+  if (!uri) return undefined;
+  // Production/Trial rejects non-HTTPS redirects. Keep http://localhost for sandbox only.
+  if (uri.startsWith("https://")) return uri;
+  if (plaidEnv() === "sandbox" && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(uri)) {
+    return uri;
+  }
+  return undefined;
 }
 
 export function buildLinkTokenRequest(input: {
