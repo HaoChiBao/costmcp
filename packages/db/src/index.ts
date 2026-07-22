@@ -3,6 +3,28 @@ import type { Database, Json } from "./database.types.js";
 
 export type { Database, Json };
 export { sumSpendForApiKey, utcMonthStartIso } from "./api-keys.js";
+export {
+  getPlaidAccountByAccountId,
+  getPlaidItemAccessTokenEncrypted,
+  getPlaidItemById,
+  getPlaidItemByPlaidItemId,
+  insertPlaidItem,
+  listPlaidAccounts,
+  listPlaidItems,
+  listPlaidTransactions,
+  softRemovePlaidTransaction,
+  updatePlaidItem,
+  upsertPlaidAccount,
+  upsertPlaidItemSecret,
+  upsertPlaidTransaction,
+  type PlaidAccountInsert,
+  type PlaidAccountRow,
+  type PlaidItemInsert,
+  type PlaidItemRow,
+  type PlaidItemUpdate,
+  type PlaidTransactionInsert,
+  type PlaidTransactionRow,
+} from "./plaid.js";
 
 export function createServiceClient(): SupabaseClient<Database> {
   const url = process.env.SUPABASE_URL;

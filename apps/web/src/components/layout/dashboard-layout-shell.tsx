@@ -36,6 +36,11 @@ export function DashboardLayoutShell({
           active: pathname.startsWith(`/dashboard/${currentSlug}/connections`),
         },
         {
+          href: `/dashboard/${currentSlug}/bank-connections`,
+          label: "Banks",
+          active: pathname.startsWith(`/dashboard/${currentSlug}/bank-connections`),
+        },
+        {
           href: `/dashboard/${currentSlug}/api-keys`,
           label: "API keys",
           active: pathname.startsWith(`/dashboard/${currentSlug}/api-keys`),

@@ -320,6 +320,150 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["obligations"]["Insert"]>
         Relationships: []
       }
+      plaid_accounts: {
+        Row: {
+          id: string
+          workspace_id: string
+          plaid_item_id: string
+          account_id: string
+          name: string | null
+          official_name: string | null
+          mask: string | null
+          type: string | null
+          subtype: string | null
+          currency: string | null
+          current_balance: number | null
+          available_balance: number | null
+          credit_limit: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          plaid_item_id: string
+          account_id: string
+          name?: string | null
+          official_name?: string | null
+          mask?: string | null
+          type?: string | null
+          subtype?: string | null
+          currency?: string | null
+          current_balance?: number | null
+          available_balance?: number | null
+          credit_limit?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["plaid_accounts"]["Insert"]>
+        Relationships: []
+      }
+      plaid_item_secrets: {
+        Row: {
+          plaid_item_id: string
+          access_token_encrypted: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          plaid_item_id: string
+          access_token_encrypted: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["plaid_item_secrets"]["Insert"]>
+        Relationships: []
+      }
+      plaid_items: {
+        Row: {
+          id: string
+          workspace_id: string
+          user_id: string
+          item_id: string
+          institution_id: string | null
+          institution_name: string | null
+          status: string
+          error_code: string | null
+          error_message: string | null
+          transactions_cursor: string | null
+          consent_expiration_time: string | null
+          products: string[]
+          last_synced_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          user_id: string
+          item_id: string
+          institution_id?: string | null
+          institution_name?: string | null
+          status?: string
+          error_code?: string | null
+          error_message?: string | null
+          transactions_cursor?: string | null
+          consent_expiration_time?: string | null
+          products?: string[]
+          last_synced_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["plaid_items"]["Insert"]>
+        Relationships: []
+      }
+      plaid_transactions: {
+        Row: {
+          id: string
+          workspace_id: string
+          plaid_item_id: string
+          plaid_account_id: string
+          transaction_id: string
+          pending_transaction_id: string | null
+          amount: number
+          iso_currency_code: string | null
+          unofficial_currency_code: string | null
+          date: string
+          authorized_date: string | null
+          name: string | null
+          merchant_name: string | null
+          pending: boolean
+          category: string[] | null
+          personal_finance_category: Json | null
+          payment_channel: string | null
+          raw: Json | null
+          imported_message_id: string | null
+          removed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          plaid_item_id: string
+          plaid_account_id: string
+          transaction_id: string
+          pending_transaction_id?: string | null
+          amount: number
+          iso_currency_code?: string | null
+          unofficial_currency_code?: string | null
+          date: string
+          authorized_date?: string | null
+          name?: string | null
+          merchant_name?: string | null
+          pending?: boolean
+          category?: string[] | null
+          personal_finance_category?: Json | null
+          payment_channel?: string | null
+          raw?: Json | null
+          imported_message_id?: string | null
+          removed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["plaid_transactions"]["Insert"]>
+        Relationships: []
+      }
       pricing_rules: {
         Row: Record<string, unknown>
         Insert: Record<string, unknown>

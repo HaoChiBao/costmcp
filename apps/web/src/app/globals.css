@@ -5534,6 +5534,88 @@ body.site-nav-open {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
+.bank-list__toolbar {
+  margin-bottom: var(--spacing-12);
+}
+
+.bank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+}
+
+.bank-list__item {
+  border-top: 1px solid var(--color-line, rgba(0, 0, 0, 0.08));
+  padding-top: var(--spacing-12);
+}
+
+.bank-list__item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.bank-list__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  margin-bottom: var(--spacing-8);
+}
+
+.bank-list__accounts {
+  list-style: none;
+  margin: 0 0 var(--spacing-12);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bank-list__accounts li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  font-size: 13px;
+}
+
+.bank-list__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-8);
+  align-items: center;
+}
+
+.bank-tx-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-10);
+}
+
+.bank-tx-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  font-size: 13px;
+  padding-bottom: var(--spacing-8);
+  border-bottom: 1px solid var(--color-line, rgba(0, 0, 0, 0.06));
+}
+
+.bank-tx-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.muted {
+  color: var(--color-ash, #6b6560);
+  font-size: 13px;
+}
+
 .dashboard-page__full {
   grid-column: 1 / -1;
 }
