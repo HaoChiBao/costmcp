@@ -3,7 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { HeroHeadline } from "@/components/marketing/hero-headline";
 
-export function LandingHero() {
+type LandingHeroProps = {
+  isAuthenticated?: boolean;
+};
+
+export function LandingHero({ isAuthenticated = false }: LandingHeroProps) {
   return (
     <section className="hero hero--statement">
       <div className="landing-spine__grid hero__grid">
@@ -21,8 +25,8 @@ export function LandingHero() {
         <div className="landing-spine__pane landing-spine__pane--center" aria-hidden="true" />
 
         <div className="landing-spine__pane landing-spine__pane--right hero__rail hero__rail--right">
-          <Button href="/signup" variant="ink">
-            Get started
+          <Button href={isAuthenticated ? "/dashboard" : "/signup"} variant="ink">
+            {isAuthenticated ? "Dashboard" : "Get started"}
           </Button>
         </div>
       </div>

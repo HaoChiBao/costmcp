@@ -2,7 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-export function SiteFooter() {
+type SiteFooterProps = {
+  isAuthenticated?: boolean;
+};
+
+export function SiteFooter({ isAuthenticated = false }: SiteFooterProps) {
   const year = new Date().getFullYear();
 
   return (
@@ -15,8 +19,8 @@ export function SiteFooter() {
             </Link>
             <p className="site-footer__tagline">Organized AI spend for builders.</p>
           </div>
-          <Button href="/signup" variant="ink">
-            Get started
+          <Button href={isAuthenticated ? "/dashboard" : "/signup"} variant="ink">
+            {isAuthenticated ? "Dashboard" : "Get started"}
           </Button>
         </div>
 
@@ -32,8 +36,14 @@ export function SiteFooter() {
           <div className="site-footer__col">
             <p className="meta-label">Account</p>
             <nav className="site-footer__links" aria-label="Account">
-              <Link href="/login">Sign in</Link>
-              <Link href="/signup">Create account</Link>
+              {isAuthenticated ? (
+                <Link href="/dashboard">Dashboard</Link>
+              ) : (
+                <>
+                  <Link href="/login">Sign in</Link>
+                  <Link href="/signup">Create account</Link>
+                </>
+              )}
             </nav>
           </div>
 

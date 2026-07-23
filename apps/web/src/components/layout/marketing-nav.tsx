@@ -6,13 +6,15 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { smoothScrollTo } from "@/lib/smooth-scroll";
 
-const links: Array<{
+type NavLink = {
   href: string;
   label: string;
   match: (p: string) => boolean;
   cta?: boolean;
   external?: boolean;
-}> = [
+};
+
+const baseLinks: NavLink[] = [
   { href: "/#features", label: "Product", match: (p) => p === "/" },
   {
     href: "https://docs.costmcp.com",
@@ -20,6 +22,9 @@ const links: Array<{
     match: () => false,
     external: true,
   },
+];
+
+const guestLinks: NavLink[] = [
   { href: "/login", label: "Sign in", match: (p) => p.startsWith("/login") },
   {
     href: "/signup",
@@ -29,10 +34,27 @@ const links: Array<{
   },
 ];
 
-export function MarketingNav() {
+const authenticatedLinks: NavLink[] = [
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    match: (p) => p.startsWith("/dashboard"),
+    cta: true,
+  },
+];
+
+type MarketingNavProps = {
+  isAuthenticated?: boolean;
+};
+
+export function MarketingNav({ isAuthenticated = false }: MarketingNavProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
+  const links = [
+    ...baseLinks,
+    ...(isAuthenticated ? authenticatedLinks : guestLinks),
+  ];
 
   useEffect(() => {
     setMenuOpen(false);
